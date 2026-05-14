@@ -1,0 +1,132 @@
+{
+  "source_aliases": {
+    "apple": ["apple"],
+    "apples": ["apple"],
+    "microsoft": ["microsoft", "msft"],
+    "msft": ["microsoft", "msft"],
+    "nvidia": ["nvidia"]
+  },
+  "document_title_aliases": [
+    {
+      "terms": ["data", "computing", "architecture", "study"],
+      "aliases": ["data-and-computing-architecture-study"]
+    },
+    {
+      "terms": ["lunar", "objective", "decomposition"],
+      "aliases": ["lunar-objective-decomposition"]
+    }
+  ],
+  "topic_anchors": [
+    "qdrant",
+    "fastembed",
+    "colpali",
+    "colbert",
+    "mcp",
+    "anthropic",
+    "dair",
+    "prompt",
+    "aws",
+    "azure",
+    "microsoft",
+    "msft",
+    "nvidia",
+    "orion",
+    "nasa",
+    "contextiq"
+  ],
+  "asset_modes": ["hlr", "fe"],
+  "known_assets": [
+    "orion",
+    "gateway",
+    "space launch system",
+    "exploration ground systems",
+    "human landing system",
+    "lunar terrain vehicle"
+  ],
+  "structured_code_prefixes": ["uc", "cn", "fn", "li", "th", "as"],
+  "visual_markers": [
+    "chart",
+    "charts",
+    "diagram",
+    "diagrams",
+    "figure",
+    "figures",
+    "graph",
+    "graphs",
+    "image",
+    "images",
+    "picture",
+    "pictures",
+    "visual",
+    "visuals"
+  ],
+  "contract_markers": [
+    "agreement",
+    "contract",
+    "party",
+    "parties",
+    "terminate",
+    "termination",
+    "renewal",
+    "confidentiality",
+    "deliverables"
+  ],
+  "regulatory_expansion_terms": [
+    "legal",
+    "compliance",
+    "government",
+    "investigation",
+    "investigations",
+    "competition",
+    "privacy",
+    "laws",
+    "regulations",
+    "antitrust",
+    "dma"
+  ],
+  "risk_expansion_terms": ["adverse", "adversely", "affect", "operations"],
+  "structured_source_markers": ["lunar-objective-decomposition"],
+  "financial_anchor_headings": ["products and services performance", "gross margin"],
+  "product_service_anchor_headings": ["products and services performance"],
+  "product_service_sections": [
+    "iphone",
+    "mac",
+    "ipad",
+    "wearables, home and accessories",
+    "services"
+  ],
+  "product_markers": ["iphone", "mac", "ipad", "wearables"],
+  "financial_comparison_terms": ["2025", "2024", "2023"],
+  "financial_metrics": [
+    "revenue",
+    "net sales",
+    "gross margin",
+    "operating income",
+    "net income",
+    "diluted earnings per share"
+  ],
+  "financial_noise_sections": [
+    "risk",
+    "tariffs and other measures",
+    "cash flows",
+    "operating expenses",
+    "income taxes",
+    "liquidity and capital resources",
+    "debt",
+    "leases",
+    "purchase obligations",
+    "volatility",
+    "downward pressure",
+    "variety of factors"
+  ],
+  "financial_risk_markers": [
+    "risk factors",
+    "subject to volatility",
+    "downward pressure",
+    "adversely affect",
+    "material adverse",
+    "ultimate impact remains uncertain",
+    "variety of factors"
+  ],
+  "low_information_frontmatter": ["final report", "august 2024"]
+}

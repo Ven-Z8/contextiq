@@ -1,0 +1,58 @@
+agents:
+  - name: planner
+    role: Decompose a user question into document intelligence subtasks.
+    inputs:
+      - question
+      - available_documents
+    outputs:
+      - plan
+      - required_tools
+    tools:
+      - search_document
+      - get_page
+    failure_modes:
+      - condition: question is ambiguous
+        fallback: request a narrower question or produce a conservative plan
+
+  - name: retriever
+    role: Retrieve evidence blocks and build a context packet.
+    inputs:
+      - question
+      - plan
+    outputs:
+      - context_packet
+      - retrieval_report
+    tools:
+      - search_document
+      - get_page
+    constraints:
+      - Preserve document id, page, section, and block id.
+      - Respect token budget.
+
+  - name: verifier
+    role: Check whether answer claims are supported by cited context.
+    inputs:
+      - answer
+      - context_packet
+    outputs:
+      - citation_verdicts
+      - unsupported_claims
+      - confidence
+    tools:
+      - verify_citation
+    constraints:
+      - Unsupported claims must be listed, not silently ignored.
+
+  - name: writer
+    role: Produce a concise answer grounded only in supplied context.
+    inputs:
+      - question
+      - context_packet
+      - verifier_notes
+    outputs:
+      - answer
+      - citations
+      - evidence_gaps
+    constraints:
+      - Cite every factual claim.
+      - Say when evidence is missing.

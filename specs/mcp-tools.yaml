@@ -1,0 +1,55 @@
+tools:
+  - name: search_document
+    description: Search indexed document blocks for evidence relevant to a query.
+    input_schema:
+      document_id: string | null
+      query: string
+      limit: integer
+    output_schema:
+      matches: list
+    safety:
+      access: read_only
+      allowlisted_paths_only: true
+
+  - name: get_page
+    description: Return source blocks for one page of a known document.
+    input_schema:
+      document_id: string
+      page: integer
+    output_schema:
+      blocks: list
+    safety:
+      access: read_only
+      allowlisted_paths_only: true
+
+  - name: extract_table
+    description: Return parsed tables matching a query or page reference.
+    input_schema:
+      document_id: string
+      page: integer | null
+      query: string | null
+    output_schema:
+      tables: list
+    safety:
+      access: read_only
+
+  - name: verify_citation
+    description: Verify that a claim is supported by cited document blocks.
+    input_schema:
+      claim: string
+      block_ids: list
+    output_schema:
+      verdict: supported | partial | unsupported
+      evidence: list
+    safety:
+      access: read_only
+
+  - name: run_eval
+    description: Run a named offline evaluation suite against stored outputs.
+    input_schema:
+      suite: string
+    output_schema:
+      report: object
+    safety:
+      access: read_only
+      no_external_api_calls: true

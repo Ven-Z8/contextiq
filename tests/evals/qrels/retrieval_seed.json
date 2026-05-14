@@ -1,0 +1,246 @@
+{
+  "queries": [
+    {
+      "id": "apple_products_services_2025",
+      "question": "What is the Products and Services Performance in 2025?",
+      "relevant_anchors": [
+        {
+          "id": "apple_products_services_table",
+          "grade": 3,
+          "text_contains": ["Total net sales", "Services", "$ 416,161"],
+          "source_contains": "apple-2025-10k.pdf",
+          "block_type": "table"
+        },
+        {
+          "id": "apple_services_growth_reason",
+          "grade": 2,
+          "text_contains": ["Services net sales increased during 2025", "advertising", "App Store", "cloud services"],
+          "source_contains": "apple-2025-10k.pdf"
+        },
+        {
+          "id": "apple_iphone_growth_reason",
+          "grade": 1,
+          "text_contains": ["iPhone net sales increased during 2025", "Pro models"],
+          "source_contains": "apple-2025-10k.pdf"
+        }
+      ]
+    },
+    {
+      "id": "apple_services_growth_2025",
+      "question": "Why did Services net sales increase during 2025?",
+      "relevant_anchors": [
+        {
+          "id": "apple_services_growth_reason",
+          "grade": 3,
+          "text_contains": ["Services net sales increased during 2025", "advertising", "App Store", "cloud services"],
+          "source_contains": "apple-2025-10k.pdf"
+        },
+        {
+          "id": "apple_services_revenue_table",
+          "grade": 2,
+          "text_contains": ["Services (1)", "109,158", "96,169"],
+          "source_contains": "apple-2025-10k.pdf",
+          "block_type": "table"
+        }
+      ]
+    },
+    {
+      "id": "apple_gross_margin_2025",
+      "question": "How did Products and Services gross margin perform in 2025?",
+      "relevant_anchors": [
+        {
+          "id": "apple_gross_margin_table",
+          "grade": 3,
+          "text_contains": ["Gross margin", "Products", "Services", "$ 195,201"],
+          "source_contains": "apple-2025-10k.pdf",
+          "block_type": "table"
+        },
+        {
+          "id": "apple_products_gross_margin_reason",
+          "grade": 2,
+          "text_contains": ["Products gross margin increased during 2025", "favorable costs", "tariff costs"],
+          "source_contains": "apple-2025-10k.pdf"
+        },
+        {
+          "id": "apple_services_gross_margin_reason",
+          "grade": 2,
+          "text_contains": ["Services gross margin increased during 2025", "higher Services net sales"],
+          "source_contains": "apple-2025-10k.pdf"
+        }
+      ]
+    },
+    {
+      "id": "apple_segment_performance_2025",
+      "question": "What was Apple's segment operating performance in 2025?",
+      "relevant_anchors": [
+        {
+          "id": "apple_segment_sales_table",
+          "grade": 3,
+          "text_contains": ["Americas", "$ 178,353", "Europe", "111,032", "Total net sales", "$ 416,161"],
+          "source_contains": "apple-2025-10k.pdf",
+          "block_type": "table"
+        },
+        {
+          "id": "apple_segment_reporting_2025_table",
+          "grade": 3,
+          "text_contains": ["Operating income/(loss)", "$ 72,480", "$ 47,739", "$ 133,050"],
+          "source_contains": "apple-2025-10k.pdf",
+          "block_type": "table"
+        },
+        {
+          "id": "apple_americas_segment_reason",
+          "grade": 1,
+          "text_contains": ["Americas net sales increased during 2025", "iPhone and Services"],
+          "source_contains": "apple-2025-10k.pdf"
+        }
+      ]
+    },
+    {
+      "id": "apple_tariff_impact_2025",
+      "question": "What tariff impacts did Apple describe in 2025?",
+      "relevant_anchors": [
+        {
+          "id": "apple_2025_tariffs_risk",
+          "grade": 3,
+          "text_contains": ["Beginning in the second quarter of 2025", "new tariffs", "imports to the U.S."],
+          "source_contains": "apple-2025-10k.pdf"
+        },
+        {
+          "id": "apple_tariff_costs_gross_margin",
+          "grade": 2,
+          "text_contains": ["Products gross margin percentage decreased", "tariff costs"],
+          "source_contains": "apple-2025-10k.pdf"
+        }
+      ]
+    },
+    {
+      "id": "apple_privacy_data_risks",
+      "question": "What privacy and personal data risks does Apple describe?",
+      "relevant_anchors": [
+        {
+          "id": "apple_privacy_laws_risk",
+          "grade": 3,
+          "text_contains": ["collection, use, retention, protection and transfer", "personal data"],
+          "source_contains": "apple-2025-10k.pdf"
+        },
+        {
+          "id": "apple_privacy_public_statements_risk",
+          "grade": 2,
+          "text_contains": ["use and disclosure of personal data", "privacy policy"],
+          "source_contains": "apple-2025-10k.pdf"
+        },
+        {
+          "id": "apple_sensitive_data_obligations",
+          "grade": 2,
+          "text_contains": ["minors", "health, biometric, financial and payment card data"],
+          "source_contains": "apple-2025-10k.pdf"
+        }
+      ]
+    },
+    {
+      "id": "apple_cash_flow_2025",
+      "question": "How much cash did Apple generate from operating activities in 2025?",
+      "relevant_anchors": [
+        {
+          "id": "apple_cash_generated_operating_2025",
+          "grade": 3,
+          "text_contains": ["Operating activities", "Cash generated by operating activities", "111,482"],
+          "source_contains": "apple-2025-10k.pdf",
+          "block_type": "table"
+        }
+      ]
+    },
+    {
+      "id": "apple_revenue_note_2025",
+      "question": "What does Note 2 say about disaggregated revenue in 2025?",
+      "relevant_anchors": [
+        {
+          "id": "apple_note2_disaggregated_revenue",
+          "grade": 3,
+          "text_contains": ["proportion of net sales by disaggregated revenue source", "Greater China", "iPhone revenue"],
+          "source_contains": "apple-2025-10k.pdf"
+        },
+        {
+          "id": "apple_note2_revenue_table",
+          "grade": 2,
+          "text_contains": ["iPhone", "Services", "Total net sales", "$ 416,161"],
+          "source_contains": "apple-2025-10k.pdf",
+          "block_type": "table"
+        }
+      ]
+    },
+    {
+      "id": "nasa_lunar_surface_power_objectives",
+      "question": "What lunar objectives mention surface power or power distribution systems?",
+      "relevant_anchors": [
+        {
+          "id": "nasa_power_cn_objectives",
+          "grade": 3,
+          "text_contains": ["CN-P-101", "CN-P-102", "CN-P-103", "power distribution system(s)"],
+          "source_contains": "lunar-objective-decomposition.xlsx",
+          "block_type": "table"
+        },
+        {
+          "id": "nasa_power_li01_objective",
+          "grade": 3,
+          "text_contains": ["LI-01 L", "incremental lunar power generation and distribution system"],
+          "source_contains": "lunar-objective-decomposition.xlsx",
+          "block_type": "table"
+        }
+      ]
+    },
+    {
+      "id": "nasa_power_function_use_cases",
+      "question": "Which NASA functions and use cases describe lunar power generation and distribution?",
+      "relevant_anchors": [
+        {
+          "id": "nasa_power_functions",
+          "grade": 3,
+          "text_contains": ["FN-P-101", "FN-P-301", "Generate power", "Distribute power"],
+          "source_contains": "lunar-objective-decomposition.xlsx",
+          "block_type": "table"
+        },
+        {
+          "id": "nasa_power_use_cases",
+          "grade": 3,
+          "text_contains": ["UC-P-101", "UC-P-301", "Power generation and energy storage", "Power distribution"],
+          "source_contains": "lunar-objective-decomposition.xlsx",
+          "block_type": "table"
+        }
+      ]
+    },
+    {
+      "id": "nasa_continuous_power_critical_operations",
+      "question": "What NASA needs describe continuous power for crew safety critical operations?",
+      "relevant_anchors": [
+        {
+          "id": "nasa_continuous_power_cn_p_103",
+          "grade": 3,
+          "text_contains": ["CN-P-103", "continuous power availability", "crew safety critical mission operation"],
+          "source_contains": "lunar-objective-decomposition.xlsx",
+          "block_type": "table"
+        },
+        {
+          "id": "nasa_continuous_power_use_cases",
+          "grade": 2,
+          "text_contains": ["UC-P-501", "Continuous power provision", "mission critical activities"],
+          "source_contains": "lunar-objective-decomposition.xlsx",
+          "block_type": "table"
+        }
+      ]
+    },
+    {
+      "id": "nasa_orion_hlr_functions",
+      "question": "What HLR functions support for Orion?",
+      "relevant_anchors": [
+        {
+          "id": "nasa_orion_hlr_asset_function_mapping",
+          "grade": 3,
+          "text_contains": ["EM-003-HLR", "Orion", "FN-T-101", "FN-L-302"],
+          "source_contains": "lunar-objective-decomposition.xlsx",
+          "block_type": "table"
+        }
+      ]
+    }
+  ]
+}
