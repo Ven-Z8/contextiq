@@ -1,4 +1,4 @@
-# Portfolio Demo Questions
+# Demo Questions
 
 Active corpus for this phase:
 
@@ -24,13 +24,3 @@ Keep the DB clean: only real external documents belong in the active vector stor
 | 10 | What tariff impacts did Apple describe in 2025? | Apple tariff risk language and Products gross margin tariff-cost explanation. | Risk + MD&A evidence linking |
 | 11 | What does Microsoft say about service and other revenue in 2025? | Microsoft revenue table separating Product and Service and other revenue. | Segment-like table extraction from DOCX |
 | 12 | Which NVIDIA table summarizes fiscal 2025 results? | NVIDIA fiscal 2025 results table on revenue, gross margin, operating income, and diluted EPS. | Visual/table-heavy annual-report retrieval |
-
-## Next Real Documents To Add
-
-Use [document-gauntlet.md](document-gauntlet.md) as the candidate list. Best next additions:
-
-1. IPCC AR6 Synthesis Report Summary for Policymakers
-2. NIST AI RMF or NIST Generative AI Profile
-3. A real SEC contract exhibit, not the toy sample contract
-4. A legal agreement with exhibits and defined terms
-5. A table-heavy healthcare or safety report with figures

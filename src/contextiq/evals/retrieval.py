@@ -72,7 +72,7 @@ class RetrievalEvalReport(BaseModel):
     queries: list[RetrievalQueryResult]
 
     def to_markdown(self) -> str:
-        """Render a compact markdown report for CLI and portfolio docs."""
+        """Render a compact markdown report for CLI output."""
 
         lines = [
             "# Retrieval Evaluation",

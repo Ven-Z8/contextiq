@@ -296,7 +296,7 @@ state when visual evidence is only partially described.
   - Returns `RetrievalEvalReport`.
 
 - `RetrievalEvalReport.to_markdown()`
-  - Renders a portfolio-friendly report.
+  - Renders a compact retrieval report.
 
 ## 10. Current Reliability Baseline
 

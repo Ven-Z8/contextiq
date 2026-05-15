@@ -1,8 +1,8 @@
 # ContextIQ
 
-ContextIQ is a context-engineered agentic RAG system for complex enterprise documents, with MCP tools and measurable evaluation.
+ContextIQ is a context-engineered retrieval system for complex enterprise documents. It parses large files, preserves citation metadata, builds token-aware context packets, and returns grounded answers with evidence.
 
-## Benchmark
+## Results Snapshot
 
 | Metric | Naive RAG | ContextIQ |
 | --- | ---: | ---: |
@@ -11,9 +11,7 @@ ContextIQ is a context-engineered agentic RAG system for complex enterprise docu
 | Retrieval MRR | pending | 0.735 |
 | Retrieval NDCG@10 | pending | 0.853 |
 
-These numbers are the legacy Apple/NASA seed eval. The current live corpus is larger:
-5 real documents, 7,428 blocks, and manual smoke checks across Apple, Microsoft,
-NVIDIA, and NASA sources. See [docs/benchmarks.md](docs/benchmarks.md).
+These retrieval metrics come from the seed evaluation set in `tests/evals/qrels/retrieval_seed.json`. See [docs/benchmarks.md](docs/benchmarks.md) for details.
 
 ## Quick Install
 
@@ -23,7 +21,7 @@ uv run contextiq --help
 uv run pytest
 ```
 
-## Local App
+## Run The App
 
 Run the backend:
 
@@ -35,17 +33,16 @@ Then open `http://127.0.0.1:8000`.
 
 The dashboard supports two modes:
 
-- `Answer with Evidence`: retrieval plus Claude grounded answer synthesis.
+- `Answer with Evidence`: retrieval plus grounded answer synthesis.
 - `Build Context Only`: retrieval trace without an LLM call.
 
-Set `ANTHROPIC_API_KEY` for Claude synthesis. Without a key, ContextIQ returns a
-safe extractive fallback so the demo still runs locally.
+Set `ANTHROPIC_API_KEY` for Anthropic answer synthesis. Without a key, ContextIQ returns a safe extractive fallback so the demo still runs locally.
 
 ## Architecture
 
 ```text
 Document -> Structural Chunking -> Qdrant/Fallback Index -> Intent Router
-  -> Context Packet -> Claude Answer Synthesis -> Citations + Eval Trace
+  -> Context Packet -> Answer Synthesis -> Citations + Eval Trace
 ```
 
 Corpus-specific retrieval vocabulary lives in
@@ -53,34 +50,31 @@ Corpus-specific retrieval vocabulary lives in
 aliases, product markers, asset names, and structured-document markers can be
 updated without changing generic retrieval code.
 
-## Design Thesis
+## Highlights
 
-ContextIQ is built from a local AI engineering pattern library:
+- Structural chunking for prose, tables, spreadsheets, and figure metadata.
+- Citation-preserving retrieval with source, page, block, and chunk metadata.
+- Token-aware context packet assembly with selected and dropped candidates.
+- Configurable retrieval profile for aliases, source markers, assets, and financial terms.
+- Optional Anthropic answer synthesis with extractive fallback when no API key is set.
+- Retrieval eval contracts and qrels for repeatable quality checks.
 
-- Context window auto-compaction
-- Context minimization
-- Progressive disclosure for large files
-- Spec-driven eval contracts
-- Policy-gated MCP tools
-- Planner-worker agent orchestration
-
-See [docs/wiki-patterns.md](docs/wiki-patterns.md).
 See [docs/code-flow.md](docs/code-flow.md) for the function-level execution map.
 
-The agent, MCP, and eval contracts live in:
+The retrieval, MCP, and eval contracts live in:
 
 - [specs/agents.yaml](specs/agents.yaml)
 - [specs/mcp-tools.yaml](specs/mcp-tools.yaml)
 - [specs/evals.yaml](specs/evals.yaml)
 
-## First Demo
+## Demo Commands
 
 ```bash
-uv run contextiq ingest data/raw/apple-2025-10k.pdf
+uv run contextiq ingest data/raw/sample-contract.md
 uv run contextiq ask "What are the main regulatory risks? Cite pages."
 curl -X POST http://127.0.0.1:8000/answer \
   -H 'Content-Type: application/json' \
-  -d '{"question":"What HLR functions support for Orion?","limit":6}'
+  -d '{"question":"What obligations does the contract mention?","limit":6}'
 uv run contextiq inspect-context
 ```
 
