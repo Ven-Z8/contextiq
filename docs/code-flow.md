@@ -308,11 +308,11 @@ uv run ruff check .
 uv run contextiq eval-retrieval --limit 20 --k 10
 ```
 
-Current retrieval baseline:
+Current retrieval comparison:
 
-| Metric | Value |
-| --- | ---: |
-| Recall@10 | 0.753 |
-| Precision@10 | 0.283 |
-| MRR | 0.822 |
-| NDCG@10 | 0.700 |
+| Metric | Lexical-only baseline | ContextIQ |
+| --- | ---: | ---: |
+| Recall@10 | 0.556 | 0.736 |
+| Precision@10 | 0.233 | 0.233 |
+| MRR | 0.667 | 0.735 |
+| NDCG@10 | 0.881 | 0.853 |

@@ -4,12 +4,12 @@ ContextIQ is a context-engineered retrieval system for complex enterprise docume
 
 ## Results Snapshot
 
-| Metric | Naive RAG | ContextIQ |
+| Metric | Lexical-only baseline | ContextIQ |
 | --- | ---: | ---: |
-| Retrieval Recall@10 | pending | 0.736 |
-| Retrieval Precision@10 | pending | 0.233 |
-| Retrieval MRR | pending | 0.735 |
-| Retrieval NDCG@10 | pending | 0.853 |
+| Retrieval Recall@10 | 0.556 | 0.736 |
+| Retrieval Precision@10 | 0.233 | 0.233 |
+| Retrieval MRR | 0.667 | 0.735 |
+| Retrieval NDCG@10 | 0.881 | 0.853 |
 
 These retrieval metrics come from the seed evaluation set in `tests/evals/qrels/retrieval_seed.json`. See [docs/benchmarks.md](docs/benchmarks.md) for details.
 
