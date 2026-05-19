@@ -2,6 +2,20 @@
 
 ContextIQ is a context-engineered retrieval system for complex enterprise documents. It parses large files, preserves citation metadata, builds token-aware context packets, and returns grounded answers with evidence.
 
+## Demo
+
+> _Screenshots and walkthrough video: TBD — to be added before public release._
+
+```bash
+contextiq ingest data/raw/sample-contract.md
+contextiq ask "What are the main regulatory risks? Cite pages."
+# chunks ranked | context packed | citations preserved
+```
+
+## Stack
+
+Python · FastAPI · Qdrant (vector index) · FastEmbed (local embeddings) · Anthropic Claude (answer synthesis) · pytest · Typer (CLI) · Vega-Lite-ready answer schema · YAML specs for agents/MCP/evals.
+
 ## Results Snapshot
 
 | Metric | Lexical-only baseline | ContextIQ |
@@ -40,9 +54,14 @@ Set `ANTHROPIC_API_KEY` for Anthropic answer synthesis. Without a key, ContextIQ
 
 ## Architecture
 
-```text
-Document -> Structural Chunking -> Qdrant/Fallback Index -> Intent Router
-  -> Context Packet -> Answer Synthesis -> Citations + Eval Trace
+```mermaid
+flowchart LR
+  D[Document] --> C[Structural Chunking]
+  C --> I[Qdrant / Fallback Index]
+  I --> R[Intent Router]
+  R --> P[Context Packet]
+  P --> A[Answer Synthesis]
+  A --> O[Citations + Eval Trace]
 ```
 
 Corpus-specific retrieval vocabulary lives in
