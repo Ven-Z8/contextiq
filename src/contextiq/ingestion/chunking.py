@@ -12,10 +12,10 @@ from contextiq.ingestion.models import BlockType, DocumentBlock
 class ChunkingConfig:
     """Chunking policy for retrieval-ready blocks."""
 
-    max_text_words: int = 350
-    text_overlap_words: int = 50
-    max_table_rows: int = 40
-    table_overlap_rows: int = 3
+    max_text_words: int = 250
+    text_overlap_words: int = 40
+    max_table_rows: int = 25
+    table_overlap_rows: int = 2
 
 
 class DocumentChunker:

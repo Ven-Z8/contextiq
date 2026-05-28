@@ -31,9 +31,11 @@ class CandidateGenerator:
         vector_search: Callable[[str, int], list[DocumentBlock]],
         analyzer: QueryAnalyzer | None = None,
         ranker: CandidateRanker | None = None,
+        sparse_search: Callable[[str, int], list[DocumentBlock]] | None = None,
     ) -> None:
         self.blocks_provider = blocks_provider
         self.vector_search = vector_search
+        self.sparse_search = sparse_search
         self.analyzer = analyzer or QueryAnalyzer()
         self.ranker = ranker or CandidateRanker(self.analyzer)
 
@@ -80,6 +82,11 @@ class CandidateGenerator:
         return self._dedupe(candidates)
 
     def lexical_candidates(self, query: str, limit: int) -> list[DocumentBlock]:
+        if self.sparse_search is not None:
+            sparse_hits = self.sparse_search(query, limit)
+            if sparse_hits:
+                return sparse_hits
+
         terms = self.analyzer.analyze(query).terms
         scored: list[tuple[int, int, DocumentBlock]] = []
         for block in self.blocks_provider():

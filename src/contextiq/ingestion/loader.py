@@ -11,6 +11,7 @@ from typing import Any
 
 from contextiq.ingestion.chunking import DocumentChunker
 from contextiq.ingestion.models import BlockType, DocumentBlock
+from contextiq.ingestion.profiles import QUALITY, IngestProfile
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +24,19 @@ class DocumentLoader:
         strict_docling: bool = False,
         chunker: DocumentChunker | None = None,
         visuals_dir: Path | None = None,
-        enable_picture_enrichment: bool = True,
+        enable_picture_enrichment: bool | None = None,
+        profile: IngestProfile | None = None,
     ) -> None:
         self.strict_docling = strict_docling
         self.chunker = chunker or DocumentChunker()
         self.visuals_dir = visuals_dir or Path("data/processed/visuals")
-        self.enable_picture_enrichment = enable_picture_enrichment
+        self.profile = profile or QUALITY
+        if enable_picture_enrichment is None:
+            self.enable_picture_enrichment = self.profile.enable_picture_enrichment
+        else:
+            self.enable_picture_enrichment = enable_picture_enrichment
 
-    def load(self, path: Path) -> list[DocumentBlock]:
+    def load(self, path: Path, *, page_range: tuple[int, int] | None = None) -> list[DocumentBlock]:
         """Load a document from disk."""
 
         if not path.exists():
@@ -42,7 +48,9 @@ class DocumentLoader:
             return self.chunker.chunk_blocks(self._load_plain_text(path))
 
         try:
-            return self.chunker.chunk_blocks(self._load_with_docling(path))
+            return self.chunker.chunk_blocks(
+                self._load_with_docling(path, page_range=page_range)
+            )
         except Exception as exc:
             if self.strict_docling or not self._can_plain_text_fallback(path):
                 raise
@@ -50,14 +58,31 @@ class DocumentLoader:
                 self._load_plain_text(path, parser_error=str(exc))
             )
 
-    def _load_with_docling(self, path: Path) -> list[DocumentBlock]:
+    def load_pdf_range(self, path: Path, *, page_range: tuple[int, int]) -> list[DocumentBlock]:
+        """Load one page range from a PDF without chunking policy changes."""
+
+        if path.suffix.lower() != ".pdf":
+            raise ValueError("load_pdf_range only supports PDF files")
+        return self.chunker.chunk_blocks(
+            self._load_with_docling(path, page_range=page_range)
+        )
+    def _load_with_docling(
+        self,
+        path: Path,
+        *,
+        page_range: tuple[int, int] | None = None,
+    ) -> list[DocumentBlock]:
         from docling.datamodel.base_models import InputFormat
-        from docling.datamodel.pipeline_options import PdfPipelineOptions
+        from docling.datamodel.pipeline_options import PdfPipelineOptions, TableFormerMode
         from docling.document_converter import DocumentConverter, PdfFormatOption
 
         pdf_options = PdfPipelineOptions()
-        pdf_options.generate_page_images = True
-        pdf_options.generate_picture_images = True
+        pdf_options.generate_page_images = self.profile.generate_page_images
+        pdf_options.generate_picture_images = self.profile.generate_picture_images
+        pdf_options.do_picture_classification = self.enable_picture_enrichment
+        pdf_options.do_picture_description = self.enable_picture_enrichment
+        if self.profile.table_mode_fast:
+            pdf_options.table_structure_options.mode = TableFormerMode.FAST
 
         if self.enable_picture_enrichment:
             self._enable_docling_picture_enrichment(pdf_options)
@@ -68,22 +93,27 @@ class DocumentLoader:
             pdf_options=pdf_options,
             document_converter=DocumentConverter,
         )
+        convert_kwargs: dict[str, tuple[int, int]] = {}
+        if page_range is not None:
+            convert_kwargs["page_range"] = page_range
         try:
-            result = converter.convert(str(path))
+            result = converter.convert(str(path), **convert_kwargs)
         except Exception:
             if not self.enable_picture_enrichment:
                 raise
             logger.warning("Docling picture enrichment failed; retrying basic conversion")
             fallback_options = PdfPipelineOptions()
-            fallback_options.generate_page_images = True
-            fallback_options.generate_picture_images = True
+            fallback_options.generate_page_images = self.profile.generate_page_images
+            fallback_options.generate_picture_images = self.profile.generate_picture_images
+            if self.profile.table_mode_fast:
+                fallback_options.table_structure_options.mode = TableFormerMode.FAST
             converter = self._docling_converter(
                 input_format=InputFormat,
                 pdf_format_option=PdfFormatOption,
                 pdf_options=fallback_options,
                 document_converter=DocumentConverter,
             )
-            result = converter.convert(str(path))
+            result = converter.convert(str(path), **convert_kwargs)
         return self._load_docling_document(document=result.document, path=path)
 
     def _enable_docling_picture_enrichment(self, pdf_options: Any) -> None:

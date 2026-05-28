@@ -8,14 +8,18 @@ from pathlib import Path
 from typing import Annotated
 
 import uvicorn
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 from contextiq.context.engine import ContextEngine
 from contextiq.context.models import ContextPacket
 from contextiq.core.config import get_settings
-from contextiq.ingestion.loader import DocumentLoader
+from contextiq.ingestion.batch import BatchIngestor
+from contextiq.ingestion.profiles import FAST, QUALITY
+from contextiq.jobs.models import IngestJob, IngestJobCreate, IngestJobStatus
+from contextiq.jobs.runner import run_ingest_job
+from contextiq.jobs.store import IngestJobStore
 from contextiq.llm.answerer import GroundedAnswerer
 from contextiq.retrieval.store import LocalDocumentStore
 
@@ -415,6 +419,32 @@ class IngestResponse(BaseModel):
     stored_path: str
     blocks: int
     indexed: int
+    profile_name: str
+    pages_total: int
+    batches_run: int
+
+
+class IngestJobResponse(BaseModel):
+    """Background ingest job response."""
+
+    job_id: str
+    status: IngestJobStatus
+    source_path: str
+
+
+class IngestJobStatusResponse(BaseModel):
+    """Detailed ingest job status."""
+
+    job_id: str
+    status: IngestJobStatus
+    source_path: str
+    profile_name: str
+    pages_total: int
+    pages_done: int
+    blocks_saved: int
+    blocks_indexed: int
+    document_id: str | None
+    error: str | None
 
 
 class ContextRequest(BaseModel):
@@ -507,6 +537,21 @@ def _resolve_visual_artifact(path: str) -> Path:
     return resolved
 
 
+def _ingest_job_response(job: IngestJob) -> IngestJobStatusResponse:
+    return IngestJobStatusResponse(
+        job_id=job.job_id,
+        status=job.status,
+        source_path=job.source_path,
+        profile_name=job.profile_name,
+        pages_total=job.pages_total,
+        pages_done=job.pages_done,
+        blocks_saved=job.blocks_saved,
+        blocks_indexed=job.blocks_indexed,
+        document_id=job.document_id,
+        error=job.error,
+    )
+
+
 def create_app(
     store_path: Path | None = None,
     answerer_factory: Callable[[], GroundedAnswerer] | None = None,
@@ -542,6 +587,7 @@ def create_app(
     async def ingest_document(
         file: Annotated[UploadFile, File()],
         index: bool = True,
+        profile: str | None = None,
     ) -> IngestResponse:
         if not file.filename:
             raise HTTPException(status_code=400, detail="Uploaded file must have a filename.")
@@ -554,17 +600,66 @@ def create_app(
         with destination.open("wb") as output:
             shutil.copyfileobj(file.file, output)
 
-        blocks = DocumentLoader().load(destination)
+        selected_profile = None
+        if profile == "fast":
+            selected_profile = FAST
+        elif profile == "quality":
+            selected_profile = QUALITY
+
+        result = BatchIngestor(profile=selected_profile).ingest(destination)
         document_store = store()
-        document_store.save_blocks(blocks)
-        indexed = document_store.index_blocks(blocks) if index else 0
+        document_store.save_blocks(result.blocks)
+        indexed = document_store.index_blocks(result.blocks) if index else 0
 
         return IngestResponse(
             filename=file.filename,
             stored_path=str(destination),
-            blocks=len(blocks),
+            blocks=len(result.blocks),
             indexed=indexed,
+            profile_name=result.profile_name,
+            pages_total=result.pages_total,
+            batches_run=result.batches_run,
         )
+
+    @app.post("/ingest/async", response_model=IngestJobResponse)
+    async def ingest_document_async(
+        file: Annotated[UploadFile, File()],
+        background_tasks: BackgroundTasks,
+        index: bool = True,
+        profile: str | None = None,
+    ) -> IngestJobResponse:
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="Uploaded file must have a filename.")
+
+        settings = get_settings()
+        raw_dir = settings.data_dir / "raw"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        destination = raw_dir / Path(file.filename).name
+
+        with destination.open("wb") as output:
+            shutil.copyfileobj(file.file, output)
+
+        job_store = IngestJobStore()
+        job = job_store.create(
+            IngestJobCreate(
+                source_path=str(destination.resolve()),
+                profile_name=profile,
+                build_index=index,
+            )
+        )
+        background_tasks.add_task(run_ingest_job, job.job_id)
+        return IngestJobResponse(
+            job_id=job.job_id,
+            status=job.status,
+            source_path=job.source_path,
+        )
+
+    @app.get("/ingest/{job_id}", response_model=IngestJobStatusResponse)
+    def ingest_job_status(job_id: str) -> IngestJobStatusResponse:
+        job = IngestJobStore().get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Ingest job not found.")
+        return _ingest_job_response(job)
 
     @app.post("/context", response_model=ContextResponse)
     def build_context(request: ContextRequest) -> ContextResponse:

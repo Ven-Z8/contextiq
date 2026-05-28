@@ -30,7 +30,7 @@ def test_loader_records_docling_fallback_error(tmp_path) -> None:
     path.write_text("# Heading\n\nBody text.", encoding="utf-8")
     loader = DocumentLoader()
 
-    def fail_docling(_path):
+    def fail_docling(_path, *, page_range=None):
         raise RuntimeError("docling unavailable")
 
     loader._load_with_docling = fail_docling  # type: ignore[method-assign]
@@ -47,7 +47,7 @@ def test_loader_uses_native_markdown_parser_for_markdown_files(tmp_path) -> None
     path.write_text("# Heading\n\n- one\n- two\n\nBody text.", encoding="utf-8")
     loader = DocumentLoader()
 
-    def fail_docling(_path):
+    def fail_docling(_path, *, page_range=None):
         raise AssertionError("markdown should not use docling")
 
     loader._load_with_docling = fail_docling  # type: ignore[method-assign]
@@ -64,7 +64,7 @@ def test_loader_strict_docling_raises_parser_errors(tmp_path) -> None:
     path.write_text("# Heading", encoding="utf-8")
     loader = DocumentLoader(strict_docling=True)
 
-    def fail_docling(_path):
+    def fail_docling(_path, *, page_range=None):
         raise RuntimeError("docling unavailable")
 
     loader._load_with_docling = fail_docling  # type: ignore[method-assign]
@@ -301,7 +301,7 @@ def test_loader_does_not_plain_text_fallback_binary_pdf(tmp_path) -> None:
     path.write_bytes(b"%PDF-1.4\r\n%\xd3\xf4\xcc\xe1")
     loader = DocumentLoader()
 
-    def fail_docling(_path):
+    def fail_docling(_path, *, page_range=None):
         raise RuntimeError("docling parser failed")
 
     loader._load_with_docling = fail_docling  # type: ignore[method-assign]

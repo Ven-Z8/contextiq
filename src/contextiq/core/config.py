@@ -15,6 +15,10 @@ class Settings(BaseSettings):
 
     data_dir: Path = Path("data")
     qdrant_path: Path = Path("data/qdrant")
+    qdrant_collection: str = "contextiq_chunks_v2"
+    jobs_db_path: Path = Path("data/jobs.db")
+    ingest_page_batch_size: int = 50
+    ingest_fast_page_threshold: int = 50
     default_model: str = "claude-sonnet-4-5"
     anthropic_api_key: SecretStr | None = Field(
         default=None,
