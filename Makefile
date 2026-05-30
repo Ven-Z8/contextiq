@@ -19,4 +19,4 @@ bench:
 	uv run python scripts/benchmark.py
 
 eval:
-	uv run contextiq eval-retrieval --limit 20 --k 10
+	cd evals && uv run python run.py
