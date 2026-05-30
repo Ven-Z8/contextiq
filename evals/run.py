@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ven_eval.records import JsonFileSink, normalize
+from ven_eval.records import JsonFileSink, SqliteSink, normalize
 
 HERE = Path(__file__).parent
 NATIVE = HERE / "results" / "contextiq.json"
@@ -41,6 +41,13 @@ def main() -> None:
     )
     JsonFileSink(RECORDS).write(recs)
     print(f"Wrote {len(recs)} records -> {RECORDS}")
+
+    # DB-foundation seam: opt in by setting VEN_EVAL_DB to the shared store
+    # (e.g. the workspace ven_master.db). Keeps contextiq decoupled from layout.
+    db_path = os.environ.get("VEN_EVAL_DB")
+    if db_path:
+        SqliteSink(db_path).write(recs)
+        print(f"Wrote {len(recs)} records -> {db_path}")
 
 
 if __name__ == "__main__":
