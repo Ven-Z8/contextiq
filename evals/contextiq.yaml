@@ -1,1 +1,41 @@
-# placeholder — populated by Task 12
+- vars:
+    question: "Inspect the context packet for a multi-section query."
+  metadata:
+    case_id: context_budget_report
+  assert:
+    - type: python
+      value: file://asserts/struct_budget_used_tokens_gt.py
+    - type: python
+      value: file://asserts/struct_budget_selected_source_ids_nonempty.py
+
+- vars:
+    question: "What are the termination and intellectual property obligations?"
+  metadata:
+    case_id: contract_clause_extraction
+  assert:
+    - type: llm-rubric
+      value: "States a termination notice period or cure period."
+    - type: llm-rubric
+      value: "States ownership or assignment of intellectual property."
+    - type: python
+      value: file://asserts/cites_ge_2.py
+
+- vars:
+    question: "What penalty does this agreement impose for late payment?"
+  metadata:
+    case_id: unsupported_claim_refusal
+  assert:
+    - type: llm-rubric
+      value: "Says the evidence is missing or not present, and does NOT invent a penalty."
+
+- vars:
+    question: "What are the top regulatory risks and what evidence supports each?"
+  metadata:
+    case_id: risk_factor_synthesis
+  assert:
+    - type: llm-rubric
+      value: "Groups risks by theme."
+    - type: llm-rubric
+      value: "Cites a document source for every factual claim."
+    - type: llm-rubric
+      value: "Separates document evidence from model interpretation."
