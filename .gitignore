@@ -22,6 +22,12 @@ data/processed/
 data/raw/*
 !data/raw/sample-contract.md
 
+# Generated eval output (promptfoo runs)
+evals/results/
+evals/data/
+evals/promptfoo-errors.log
+evals/_*.yaml
+
 # OS/editor noise
 .DS_Store
 .cursor/

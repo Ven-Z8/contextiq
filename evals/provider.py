@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
-from contextiq.query import answer_question
-from ven_eval import EvalOutput, PromptfooProvider
+import os
+from pathlib import Path
+
+# promptfoo runs this provider with cwd set to the config dir (evals/), but
+# contextiq resolves prompts/ and data/qdrant relative to its project root.
+# Anchor the process to the project root so those relative paths resolve.
+os.chdir(Path(__file__).resolve().parents[1])
+
+from contextiq.query import answer_question  # noqa: E402
+from ven_eval import EvalOutput, PromptfooProvider  # noqa: E402
 
 
 class ContextiqProvider(PromptfooProvider):

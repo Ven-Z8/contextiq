@@ -3,10 +3,16 @@
   metadata:
     case_id: context_budget_report
   assert:
+    # Inline python: promptfoo wraps these as the body of main(output, context).
+    # (file:// asserts in an external tests file get inlined and lose get_assert.)
     - type: python
-      value: file://asserts/struct_budget_used_tokens_gt.py
+      value: |
+        md = context.get('metadata') if isinstance(context.get('metadata'), dict) else ((context.get('providerResponse') or {}).get('metadata') or {})
+        return (md.get('budget') or {}).get('used_tokens', 0) > 0
     - type: python
-      value: file://asserts/struct_budget_selected_source_ids_nonempty.py
+      value: |
+        md = context.get('metadata') if isinstance(context.get('metadata'), dict) else ((context.get('providerResponse') or {}).get('metadata') or {})
+        return len((md.get('budget') or {}).get('selected_source_ids') or []) > 0
 
 - vars:
     question: "What are the termination and intellectual property obligations?"
@@ -18,7 +24,9 @@
     - type: llm-rubric
       value: "States ownership or assignment of intellectual property."
     - type: python
-      value: file://asserts/cites_ge_2.py
+      value: |
+        md = context.get('metadata') if isinstance(context.get('metadata'), dict) else ((context.get('providerResponse') or {}).get('metadata') or {})
+        return int(md.get('citations_count', 0)) >= 2
 
 - vars:
     question: "What penalty does this agreement impose for late payment?"
