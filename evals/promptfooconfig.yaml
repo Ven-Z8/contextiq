@@ -1,0 +1,8 @@
+description: contextiq evals
+providers:
+  - id: file://provider.py:call_api
+defaultTest:
+  options:
+    provider: anthropic:claude-sonnet-4-6
+tests: contextiq.yaml
+outputPath: results/contextiq.json

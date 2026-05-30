@@ -55,3 +55,11 @@ select = ["E", "F", "I", "B", "UP"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.uv.sources]
+ven-eval = { path = "../../.worktrees/ven-eval-build", editable = true }
+
+[dependency-groups]
+dev = [
+    "ven-eval",
+]
