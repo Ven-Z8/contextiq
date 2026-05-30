@@ -22,6 +22,28 @@ class LLMResult(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+# USD per 1M tokens (input, output), keyed by a model-id substring.
+_PRICING: dict[str, tuple[float, float]] = {
+    "opus": (15.0, 75.0),
+    "sonnet": (3.0, 15.0),
+    "haiku": (1.0, 5.0),
+}
+
+
+def estimate_cost(model: str, tokens_in: int, tokens_out: int) -> float | None:
+    """Best-effort USD cost from token usage and a model-tier price table.
+
+    Returns None for models not in the table rather than guessing.
+    """
+    lowered = model.lower()
+    for key, (in_price, out_price) in _PRICING.items():
+        if key in lowered:
+            return round(
+                tokens_in / 1_000_000 * in_price + tokens_out / 1_000_000 * out_price, 6
+            )
+    return None
+
+
 class LLMClient(ABC):
     """Model provider boundary for answer synthesis."""
 
@@ -68,7 +90,7 @@ class AnthropicLLMClient(LLMClient):
             mode="anthropic",
             tokens_in=usage.input_tokens,
             tokens_out=usage.output_tokens,
-            cost_usd=None,
+            cost_usd=estimate_cost(self.model, usage.input_tokens, usage.output_tokens),
         )
 
 
