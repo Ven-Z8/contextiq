@@ -44,6 +44,6 @@
     - type: llm-rubric
       value: "Groups risks by theme."
     - type: llm-rubric
-      value: "Cites a document source for every factual claim."
+      value: "Every claim in the Evidence section includes a document citation. The Direct Answer is high-level synthesis and is not required to carry per-claim citations."
     - type: llm-rubric
       value: "Separates document evidence from model interpretation."

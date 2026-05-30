@@ -24,7 +24,10 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("ANTHROPIC_API_KEY", "CONTEXTIQ_ANTHROPIC_API_KEY"),
     )
-    answer_max_tokens: int = 1_000
+    # 1_000/2_000 truncated comprehensive multi-source answers mid-section
+    # (dropping trailing citations and the Confidence/Gaps interpretation block).
+    # Give comprehensive syntheses real headroom; Sonnet supports 8k+ output.
+    answer_max_tokens: int = 4_000
 
 
 def get_settings() -> Settings:
