@@ -19,6 +19,7 @@ dependencies = [
     "tiktoken>=0.12.0",
     "typer>=0.20.0",
     "uvicorn>=0.38.0",
+    "ven-obs",
 ]
 
 [project.optional-dependencies]
@@ -58,6 +59,7 @@ asyncio_mode = "auto"
 
 [tool.uv.sources]
 ven-eval = { path = "../../.worktrees/ven-eval-build", editable = true }
+ven-obs = { path = "../ven-obs", editable = true }
 
 [dependency-groups]
 dev = [
