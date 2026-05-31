@@ -1,6 +1,8 @@
-"""Single seam for answering a question end-to-end (used by CLI and evals)."""
+"""Single seam for answering a question end-to-end (used by CLI, evals, and obs)."""
 
 from __future__ import annotations
+
+from ven_obs import api
 
 from contextiq.context.engine import ContextEngine
 from contextiq.context.models import ContextPacket
@@ -8,9 +10,31 @@ from contextiq.llm.answerer import GroundedAnswer, GroundedAnswerer
 from contextiq.retrieval.store import LocalDocumentStore
 
 
-def answer_question(question: str) -> tuple[GroundedAnswer, ContextPacket]:
-    """Build a context packet and synthesize a grounded answer."""
+def _build_packet(question: str) -> ContextPacket:
     store = LocalDocumentStore()
-    packet = ContextEngine(store=store).build_context(question)
-    answer = GroundedAnswerer().answer(packet)
-    return answer, packet
+    return ContextEngine(store=store).build_context(question)
+
+
+def _synthesize(packet: ContextPacket) -> GroundedAnswer:
+    return GroundedAnswerer().answer(packet)
+
+
+def answer_question(question: str) -> tuple[GroundedAnswer, ContextPacket]:
+    """Build a context packet and synthesize a grounded answer (instrumented)."""
+    with api.start_run(project="contextiq", label=question) as span:
+        with api.observe("contextiq.retrieval"):
+            packet = _build_packet(question)
+        with api.observe("contextiq.llm.answer"):
+            answer = _synthesize(packet)
+        api.set_run_metrics(
+            span,
+            model=answer.model,
+            input_tokens=answer.tokens_in,
+            output_tokens=answer.tokens_out,
+            cost_usd=answer.cost_usd,
+            citations_count=len(packet.sources),
+            used_tokens=packet.used_tokens,
+            dropped_candidates=packet.dropped_candidates,
+            token_budget=packet.token_budget,
+        )
+        return answer, packet
