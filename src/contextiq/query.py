@@ -26,6 +26,7 @@ def answer_question(question: str) -> tuple[GroundedAnswer, ContextPacket]:
             packet = _build_packet(question)
         with api.observe("contextiq.llm.answer"):
             answer = _synthesize(packet)
+        api.set_io(span, input=question, output=answer.text)
         api.set_run_metrics(
             span,
             model=answer.model,
