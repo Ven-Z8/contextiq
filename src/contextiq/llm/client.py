@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from abc import ABC, abstractmethod
 
 from anthropic import Anthropic
@@ -62,6 +63,12 @@ class AnthropicLLMClient(LLMClient):
     """Anthropic-backed LLM client."""
 
     def __init__(self, *, api_key: str, model: str) -> None:
+        # Some host environments (e.g. Claude Desktop) inject ANTHROPIC_AUTH_TOKEN.
+        # The SDK turns it into an empty/foreign "Authorization: Bearer" header that
+        # breaks x-api-key auth (and passing auth_token="" yields an illegal empty
+        # Bearer). Remove it from THIS process's env so x-api-key is used cleanly;
+        # contextiq is its own process, so this does not affect the host app.
+        os.environ.pop("ANTHROPIC_AUTH_TOKEN", None)
         self.client = Anthropic(api_key=api_key)
         self.model = model
 
