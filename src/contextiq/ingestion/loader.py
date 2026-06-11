@@ -5,13 +5,18 @@ from __future__ import annotations
 import hashlib
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from contextiq.ingestion.chunking import DocumentChunker
 from contextiq.ingestion.extractors.base import Extractor
 from contextiq.ingestion.extractors.docling_standard import DoclingStandardExtractor
 from contextiq.ingestion.models import BlockType, DocumentBlock
 from contextiq.ingestion.profiles import QUALITY, IngestProfile
+from contextiq.ingestion.tree import DocumentTree, TreeBuilder
+from contextiq.ingestion.tree_store import TreeStore
+
+if TYPE_CHECKING:
+    from contextiq.ingestion.summarizer import NodeSummarizer
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +77,26 @@ class DocumentLoader:
         return self.chunker.chunk_blocks(
             self._load_with_docling(path, page_range=page_range)
         )
+
+    def build_tree(
+        self,
+        path: Path,
+        *,
+        store: TreeStore | None = None,
+        summarizer: NodeSummarizer | None = None,
+    ) -> DocumentTree:
+        """Extract a document and build (and persist) its recursive tree."""
+        blocks = self.extractor.extract(path)
+        tree = TreeBuilder().build(blocks)
+        if summarizer is not None:
+            block_text = {b.block_id: b.text for b in blocks}
+            summarizer.summarize(tree, block_text)
+        tree.page_count = max(
+            (b.page for b in blocks if b.page is not None), default=None
+        )
+        if store is not None:
+            store.save(tree)
+        return tree
 
     # ---------------------------------------------------------------------------
     # Delegating shims — keep existing call sites (including tests) working.
