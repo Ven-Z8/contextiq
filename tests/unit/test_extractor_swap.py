@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from contextiq.ingestion.extractors.base import Extractor
 from contextiq.ingestion.extractors.docling_standard import DoclingStandardExtractor
 from contextiq.ingestion.extractors.stub import StubExtractor
+from contextiq.ingestion.loader import DocumentLoader
 from contextiq.ingestion.models import BlockType, DocumentBlock
 
 
@@ -25,9 +26,6 @@ def test_stub_extractor_records_requested_page_range() -> None:
     stub = StubExtractor([])
     stub.extract(Path("x.pdf"), page_range=(1, 10))
     assert stub.last_page_range == (1, 10)
-
-
-from contextiq.ingestion.loader import DocumentLoader
 
 
 def test_loader_uses_injected_extractor_for_pdf(tmp_path) -> None:

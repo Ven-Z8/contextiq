@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from contextiq.ingestion.extractors.docling_vlm import DoclingVLMExtractor
 from contextiq.ingestion.extractors.stub import StubExtractor
 from contextiq.ingestion.models import BlockType, DocumentBlock

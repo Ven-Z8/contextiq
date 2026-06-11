@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextiq.ingestion.models import BlockType, DocumentBlock
-from contextiq.ingestion.tree import DocumentTree, TreeNode, TreeBuilder
+from contextiq.ingestion.tree import DocumentTree, TreeBuilder, TreeNode
 
 
 def test_document_tree_round_trips_through_json() -> None:
