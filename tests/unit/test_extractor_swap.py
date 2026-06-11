@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 from contextiq.ingestion.extractors.base import Extractor
+from contextiq.ingestion.extractors.docling_standard import DoclingStandardExtractor
 from contextiq.ingestion.extractors.stub import StubExtractor
 from contextiq.ingestion.models import BlockType, DocumentBlock
 
@@ -41,3 +43,18 @@ def test_loader_uses_injected_extractor_for_pdf(tmp_path) -> None:
 
     assert sentinel.last_page_range is None
     assert any("hello from stub" in b.text for b in blocks)
+
+
+def test_standard_extractor_records_reading_order_and_heading_level(tmp_path) -> None:
+    ext = DoclingStandardExtractor()
+    heading = SimpleNamespace(label="section_header", level=2, text="Risk Factors",
+                              self_ref="#/h", prov=[])
+    body = SimpleNamespace(label="text", text="Some prose.", self_ref="#/t", prov=[])
+    document = SimpleNamespace(iterate_items=lambda: iter([(heading, 1), (body, 1)]))
+
+    blocks = ext._load_docling_document(document=document, path=tmp_path / "d.pdf")
+
+    assert blocks[0].metadata["reading_order"] == 0
+    assert blocks[0].metadata["heading_level"] == 2
+    assert blocks[1].metadata["reading_order"] == 1
+    assert blocks[1].metadata["layout_label"] == "text"

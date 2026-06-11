@@ -138,6 +138,10 @@ class DoclingStandardExtractor:
                     block_index=block_index,
                 ),
             }
+            metadata["reading_order"] = block_index
+            metadata["layout_label"] = label
+            if block_type == BlockType.HEADING:
+                metadata["heading_level"] = max(int(getattr(item, "level", 1) or 1), 1)
 
             if block_type == BlockType.HEADING:
                 heading = text.lstrip("#").strip()
