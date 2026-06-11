@@ -25,6 +25,10 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("ANTHROPIC_API_KEY", "CONTEXTIQ_ANTHROPIC_API_KEY"),
     )
     answer_max_tokens: int = 1_000
+    summary_model: str = "claude-haiku-4-5"
+    enable_vlm_extraction: bool = False
+    enable_tree_build: bool = True
+    enable_node_summaries: bool = False
 
 
 def get_settings() -> Settings:
