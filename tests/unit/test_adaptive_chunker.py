@@ -6,14 +6,11 @@ Tests verify classification accuracy and chunk strategy correctness.
 
 from __future__ import annotations
 
-import pytest
-
 from contextiq.ingestion.adaptive_chunker import (
     AdaptiveChunker,
     ContentProfile,
 )
 from contextiq.ingestion.models import BlockType, DocumentBlock
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -222,7 +219,9 @@ class TestProcessBlocks:
         result = self.chunker.process_blocks(blocks)
         assert len(result) >= 3  # May produce more due to chunking
         for block in result:
-            assert "content_profile" in block.metadata, f"Missing content_profile on {block.block_id}"
+            assert "content_profile" in block.metadata, (
+                f"Missing content_profile on {block.block_id}"
+            )
 
     def test_process_blocks_all_block_ids_unique(self):
         blocks = [

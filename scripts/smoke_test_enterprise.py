@@ -39,7 +39,9 @@ BENCHMARK_QUERIES: list[tuple[str, str, str | None]] = [
     ("analytical",        "What factors drove the increase in R&D spending?",           APPLE_DOC),
     # Risk / prose
     ("risk_section",      "What are Apple's primary regulatory risks?",                 APPLE_DOC),
-    ("risk_section",      "What tariff exposure does Apple face from imported components?", APPLE_DOC),
+    ("risk_section",
+     "What tariff exposure does Apple face from imported components?",
+     APPLE_DOC),
     ("risk_section",      "Describe material litigation Apple is facing",               APPLE_DOC),
     # Narrative
     ("narrative_para",    "What is Apple's strategy for international expansion?",      APPLE_DOC),
@@ -159,7 +161,8 @@ def main() -> None:
         print(f"⚠️  Status check says: {status.get('reason')} — probing collection anyway...")
         index = store._get_vector_index()
         if index and not index._enterprise_collection_exists():
-            print("   Enterprise collection not found. Run: uv run python scripts/reindex_enterprise.py first")
+            print("   Enterprise collection not found. "
+                  "Run: uv run python scripts/reindex_enterprise.py first")
             sys.exit(1)
         print("   Collection exists — status check may be a metadata quirk; proceeding.")
     else:

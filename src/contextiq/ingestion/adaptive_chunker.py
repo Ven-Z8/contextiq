@@ -46,7 +46,7 @@ _RISK_KEYWORDS: frozenset[str] = frozenset({
     "risk", "risks", "uncertainty", "may adversely", "could adversely",
     "adverse", "regulation", "regulatory", "compliance", "litigation",
     "lawsuit", "legal", "tariff", "sanction", "exposure", "material",
-    "uncertainty", "subject to", "contingent", "indemnification",
+    "subject to", "contingent", "indemnification",
 })
 
 # Sentence boundary pattern (handles abbreviations imperfectly but well enough)
@@ -181,8 +181,8 @@ class AdaptiveChunker:
         Never splits mid-row — always includes header in every chunk.
         """
         lines = block.text.split("\n")
-        table_lines = [l for l in lines if l.strip().startswith("|")]
-        non_table = [l for l in lines if not l.strip().startswith("|")]
+        table_lines = [line for line in lines if line.strip().startswith("|")]
+        non_table = [line for line in lines if not line.strip().startswith("|")]
 
         if not table_lines:
             return [self._tag_profile(block, ContentProfile.FINANCIAL_TABLE)]

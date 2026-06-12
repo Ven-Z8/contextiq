@@ -9,16 +9,15 @@ from __future__ import annotations
 import pytest
 
 from contextiq.retrieval.intent_router import (
-    IntentSearchConfig,
-    QueryIntentRouter,
     _ANALYTICAL_CONFIG,
     _DEFAULT_CONFIG,
     _FINANCIAL_CONFIG,
     _RISK_CONFIG,
     _STRUCTURED_CODE_CONFIG,
+    IntentSearchConfig,
+    QueryIntentRouter,
 )
-from contextiq.retrieval.query import QueryAnalyzer, QueryIntent
-
+from contextiq.retrieval.query import QueryAnalyzer
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -187,7 +186,10 @@ class TestStructuredCodeRouting:
     def test_default_fallback_for_general_query(self, router):
         config = router.route("Tell me about Apple's business")
         # Generic query → default balanced config
-        assert config.dense_limit == config.sparse_limit or config.description == "general: balanced hybrid"
+        assert (
+            config.dense_limit == config.sparse_limit
+            or config.description == "general: balanced hybrid"
+        )
 
 
 # ---------------------------------------------------------------------------

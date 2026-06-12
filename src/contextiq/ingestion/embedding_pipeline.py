@@ -136,7 +136,7 @@ class EmbeddingPipeline:
             logger.debug("ColBERT embedding done: %d multivectors", len(colbert_mats))
 
         results: list[EmbeddedVectors] = []
-        for i, (dense, sparse) in enumerate(zip(dense_vecs, sparse_embs)):
+        for i, (dense, sparse) in enumerate(zip(dense_vecs, sparse_embs, strict=True)):
             colbert = colbert_mats[i].tolist() if colbert_mats is not None else None
             results.append(EmbeddedVectors(
                 dense=dense.tolist(),
