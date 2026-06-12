@@ -6,8 +6,10 @@ import pytest
 from openpyxl import Workbook
 from PIL import Image
 
+from contextiq.ingestion.extractors.stub import StubExtractor
 from contextiq.ingestion.loader import DocumentLoader
 from contextiq.ingestion.models import BlockType, DocumentBlock
+from contextiq.ingestion.tree_store import TreeStore
 
 
 def test_loader_extracts_page_from_docling_provenance() -> None:
@@ -346,10 +348,6 @@ def test_loader_chunks_large_xlsx_sheets(tmp_path) -> None:
     assert blocks[0].metadata["chunk_strategy"] == "table_row_window"
     assert blocks[0].metadata["row_start"] == 1
     assert blocks[0].metadata["parent_block_id"].endswith(":0")
-
-
-from contextiq.ingestion.extractors.stub import StubExtractor
-from contextiq.ingestion.tree_store import TreeStore
 
 
 def test_loader_build_tree_persists_a_document_tree(tmp_path) -> None:
