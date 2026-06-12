@@ -112,7 +112,10 @@ class VectorIndex:
         try:
             existing = [c.name for c in self.client.get_collections().collections]
             if self.enterprise_collection_name in existing:
-                logger.info("Enterprise collection already exists: %s", self.enterprise_collection_name)
+                logger.info(
+                    "Enterprise collection already exists: %s",
+                    self.enterprise_collection_name,
+                )
                 return True
 
             self.client.create_collection(
@@ -226,7 +229,7 @@ class VectorIndex:
 
         # Build Qdrant points
         points: list[models.PointStruct] = []
-        for block, emb in zip(blocks, embeddings):
+        for block, emb in zip(blocks, embeddings, strict=True):
             vector_dict: dict = {
                 ENTERPRISE_DENSE_NAME: emb.dense,
                 ENTERPRISE_SPARSE_NAME: models.SparseVector(

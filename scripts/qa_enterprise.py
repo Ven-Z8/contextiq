@@ -20,7 +20,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from contextiq.context.models import ContextPacket, ContextSource
-from contextiq.ingestion.models import DocumentBlock
 from contextiq.llm.answerer import GroundedAnswerer
 from contextiq.retrieval.store import LocalDocumentStore
 from contextiq.utils.tokens import TokenCounter
@@ -30,7 +29,8 @@ from contextiq.utils.tokens import TokenCounter
 # ------------------------------------------------------------------
 DEFAULT_QUESTIONS = [
     ("apple-2025-10k-e8c0f8fec7",
-     "What was Apple's total net sales in fiscal 2025, and how did it break down by Products vs Services?"),
+     "What was Apple's total net sales in fiscal 2025, and how did it break "
+      "down by Products vs Services?"),
 
     ("apple-2025-10k-e8c0f8fec7",
      "What factors drove the increase in R&D spending in 2025?"),
