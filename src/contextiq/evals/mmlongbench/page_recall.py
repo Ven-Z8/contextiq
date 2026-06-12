@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-_INT = re.compile(r"-?\d+")
+_INT = re.compile(r"\d+")
 
 
 def parse_evidence_pages(raw: str | None) -> set[int]:

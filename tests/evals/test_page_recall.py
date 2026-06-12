@@ -23,3 +23,10 @@ def test_page_recall_ignores_none_pages_and_empty_gold() -> None:
     assert page_recall_at_k({3}, [None, None, 3], k=5) == 1.0
     # empty gold (unanswerable) -> None (scored separately, not as retrieval recall)
     assert page_recall_at_k(set(), [1, 2], k=5) is None
+
+
+def test_parse_evidence_pages_rejects_noncanonical_and_keeps_positive() -> None:
+    # only positive page ints; no negative leakage from a stray hyphen
+    assert parse_evidence_pages("[10, 10]") == {10}
+    assert parse_evidence_pages("[1, 2, 3]") == {1, 2, 3}
+    assert parse_evidence_pages(None) == set()

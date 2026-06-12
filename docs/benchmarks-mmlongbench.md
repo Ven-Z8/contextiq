@@ -29,20 +29,28 @@ The harness downloads questions (datasets-server API) and PDFs (`huggingface_hub
 
 ## Results
 
-| Run | Docs | Answerable Q | page-Recall@5 | page-Recall@10 |
-|---|---:|---:|---:|---:|
-| **Baseline (legacy live path), 3-doc subset** — 2026-06-12 | 3 | 18 | **0.79** | 0.87 |
-| Full 135-doc corpus | — | — | _TODO_ | _TODO_ |
+Absolute page-recall on short docs is dominated by a high random floor (taking 10 distinct pages of a
+~15-23pp doc is 43-67% of it), so we report **lift over a uniform random page-picker** (`E[recall@k] = min(k/pages, 1)`).
 
-### Honest caveats on the 0.79 baseline
-- **Not representative.** The 3 docs are short Pew-research reports (few pages, chart-heavy) where top-5 page
-  recall is easy. On long, table-heavy docs (e.g. a 10-K) the live path retrieves poorly — a real query for
-  "net sales Products vs Services" returned litigation prose, not the table. **The full-corpus number will be
-  materially lower.**
-- **Tiny sample** (n=18 questions) → high variance.
-- **Legacy pipeline.** This measures the currently-wired lexical/heuristic path, **not** the marketed
-  SPLADE+ColBERT enterprise stack, which is dead code (issue #13). Phase 1 wires the real pipeline; we then
-  re-baseline.
+| Run | Docs | Q | pages | Recall@5 | random@5 | **lift@5** | Recall@10 | random@10 | lift@10 |
+|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
+| **Baseline (legacy live path), short-doc subset** — 2026-06-12 | 3 | 18 | 23/23/15 | 0.79 | 0.26 | **+0.53** | 0.87 | 0.53 | +0.35 |
+| Full 135-doc corpus (#23) | — | — | — | _TODO_ | | | | | |
+
+**lift@5 = +0.53** is genuine retrieval signal (0.79 vs 0.26 random). lift@10 is smaller (+0.35) because at k=10
+on short docs the random floor alone is 0.53 — i.e. @10 here is mostly "the doc is short", which is exactly why
+we lead with @5 lift. Run with `strict_vector_errors=True` and a per-question cross-doc isolation assertion
+(0 failed docs, no leak), so the number is not propped up by silent vector→lexical fallback or contamination.
+
+### Honest caveats
+- **Short-doc subset, not representative.** 3 dataset-order Pew reports (~15-23pp vs corpus avg 47.5pp), n=18
+  (high variance, no CI yet — see #23). The full-corpus number will be lower; long/table-heavy docs are where the
+  live path fails (a real 10-K query for "net sales Products vs Services" returned litigation prose, not the table).
+- **Legacy pipeline, not the marketed stack.** This measures the currently-wired lexical/heuristic path, **not**
+  SPLADE+ColBERT (dead code, #13). Phase 1 wires the real pipeline, then we re-baseline.
+- **FAST profile = no visual enrichment** (#25): chart-evidence recall here is carried by same-page prose, not the
+  VLM pipeline. **Page-index alignment** (1-indexed, absolute across batches) is verified but not yet test-pinned (#24).
+  The live path's section-dedup + parent-resolver slightly **deflate** the number (#26), so 0.79 is conservative.
 
 ### Published context (answer accuracy, not retrieval)
 | System | MMLongBench-Doc answer F1 |
