@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     enable_vlm_extraction: bool = False
     enable_tree_build: bool = True
     enable_node_summaries: bool = False
+    enable_heading_inference: bool = True
 
 
 def get_settings() -> Settings:

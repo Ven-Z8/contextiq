@@ -16,6 +16,7 @@ from contextiq.ingestion.tree import DocumentTree, TreeBuilder
 from contextiq.ingestion.tree_store import TreeStore
 
 if TYPE_CHECKING:
+    from contextiq.ingestion.heading_hierarchy import HeadingHierarchyInferencer
     from contextiq.ingestion.summarizer import NodeSummarizer
 
 logger = logging.getLogger(__name__)
@@ -82,11 +83,19 @@ class DocumentLoader:
         self,
         path: Path,
         *,
+        page_range: tuple[int, int] | None = None,
         store: TreeStore | None = None,
         summarizer: NodeSummarizer | None = None,
+        hierarchy: HeadingHierarchyInferencer | None = None,
     ) -> DocumentTree:
-        """Extract a document and build (and persist) its recursive tree."""
-        blocks = self.extractor.extract(path)
+        """Extract a document and build (and persist) its recursive tree.
+
+        Extractors emit flat heading levels; pass a ``hierarchy`` inferencer to
+        recover nesting before the tree is built (issue #10).
+        """
+        blocks = self.extractor.extract(path, page_range=page_range)
+        if hierarchy is not None:
+            blocks = hierarchy.assign(blocks)
         tree = TreeBuilder().build(blocks)
         if summarizer is not None:
             block_text = {b.block_id: b.text for b in blocks}
