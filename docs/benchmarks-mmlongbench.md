@@ -32,10 +32,15 @@ The harness downloads questions (datasets-server API) and PDFs (`huggingface_hub
 Absolute page-recall on short docs is dominated by a high random floor (taking 10 distinct pages of a
 ~15-23pp doc is 43-67% of it), so we report **lift over a uniform random page-picker** (`E[recall@k] = min(k/pages, 1)`).
 
-| Run | Docs | Q | pages | Recall@5 | random@5 | **lift@5** | Recall@10 | random@10 | lift@10 |
-|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
-| **Baseline (legacy live path), short-doc subset** — 2026-06-12 | 3 | 18 | 23/23/15 | 0.79 | 0.26 | **+0.53** | 0.87 | 0.53 | +0.35 |
-| Full 135-doc corpus (#23) | — | — | — | _TODO_ | | | | | |
+| Run | Docs | Q | Recall@5 | random@5 | **lift@5** | Recall@10 |
+|---|---:|---:|---:|---:|---:|---:|
+| Legacy lexical path, 3-doc subset | 3 | 18 | 0.79 | 0.26 | +0.53 | 0.87 |
+| **Enterprise (SPLADE+ColBERT+adaptive), 3-doc subset** | 3 | 18 | **0.88** | 0.26 | **+0.62** | 0.92 |
+| Enterprise, 10-doc subset (#23 → full corpus pending) | 10 | _TODO_ | _TODO_ | | | |
+
+**Phase 1 finding:** the marketed SPLADE+ColBERT+adaptive-chunking stack was dead code (#13/#14). Wiring it into
+the eval (`--pipeline enterprise`) lifts the same 3-doc subset from **0.79 → 0.88@5** (lift +0.53 → +0.62) — real
+retrieval gain from connecting the real architecture, with `.page` preserved through `search_enterprise`.
 
 **lift@5 = +0.53** is genuine retrieval signal (0.79 vs 0.26 random). lift@10 is smaller (+0.35) because at k=10
 on short docs the random floor alone is 0.53 — i.e. @10 here is mostly "the doc is short", which is exactly why
