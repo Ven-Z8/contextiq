@@ -53,6 +53,22 @@ The 3-doc subset (short Pew reports) inflated to 0.88. On a **10-doc representat
 trustworthy). This is the honest current state: **+0.18 below the 0.85 target.** Phase 2 (retrieval-correctness:
 intent biasing, AdaptiveChunker fixes, post-retrieval re-rank) must close the gap. Full 135-corpus run is #23.
 
+
+### Diagnosis: where the misses are (10-doc, recall@5 by evidence source)
+| Evidence source | n | Recall@5 |
+|---|---:|---:|
+| Chart | 22 | 0.79 |
+| Pure-text | 11 | 0.78 |
+| Multi-source | 14 | 0.62 |
+| Table | 3 | 0.67 |
+| **Figure** | 11 | **0.47** |
+| **Generalized-text (Layout)** | 3 | **0.33** |
+
+Misses concentrate on **Figure (0.47)** and **Layout (0.33)** — visual evidence the FAST text pipeline reduces to
+`<figure>`/caption stubs. Text/Chart are already ~0.78, so **even perfect text-ranking caps the overall ≈ 0.79**;
+reaching 0.85 requires real visual extraction (the `DoclingVLMExtractor` thesis). page-sum aggregation was tried
+and *regressed* (0.67→0.63) — it dilutes precise single-block evidence; best-block-rank is kept.
+
 ### Honest caveats
 - **Short-doc subset, not representative.** 3 dataset-order Pew reports (~15-23pp vs corpus avg 47.5pp), n=18
   (high variance, no CI yet — see #23). The full-corpus number will be lower; long/table-heavy docs are where the

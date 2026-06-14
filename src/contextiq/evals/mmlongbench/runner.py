@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from contextiq.evals.mmlongbench.dataset import load_docs
-from contextiq.evals.mmlongbench.page_recall import page_recall_at_k
+from contextiq.evals.mmlongbench.page_recall import page_recall_at_k, page_recall_scored
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,7 @@ class MMLBResult:
     random_at_10: list[float] = field(default_factory=list)
     doc_pages: dict[str, int] = field(default_factory=dict)
     empty_result_queries: int = 0
+    records: list[dict] = field(default_factory=list)
 
     def summary(self) -> dict:
         def mean(xs: list[float]) -> float:
@@ -54,7 +55,7 @@ class MMLBResult:
         }
 
 
-def _ingest_isolated(pdf: Path, work: Path, pipeline: str = "legacy"):
+def _ingest_isolated(pdf: Path, work: Path, pipeline: str = "legacy", extractor: str = "standard"):
     """Ingest one PDF into a store+index rooted at `work`, via explicit paths
     (no global os.environ mutation — paths are injected directly)."""
     from contextiq.ingestion.batch import BatchIngestor  # noqa: PLC0415
@@ -62,21 +63,28 @@ def _ingest_isolated(pdf: Path, work: Path, pipeline: str = "legacy"):
     from contextiq.retrieval.store import LocalDocumentStore  # noqa: PLC0415
     from contextiq.retrieval.vector_index import VectorIndex  # noqa: PLC0415
 
-    result = BatchIngestor(profile=FAST).ingest(pdf)
+    if extractor == "vlm":
+        from contextiq.ingestion.extractors.docling_vlm import (
+            DoclingVLMExtractor,  # noqa: PLC0415,E501
+        )
+        from contextiq.ingestion.loader import DocumentLoader  # noqa: PLC0415
+        blocks = DocumentLoader(extractor=DoclingVLMExtractor(), profile=FAST).load(pdf)
+    else:
+        blocks = BatchIngestor(profile=FAST).ingest(pdf).blocks
     store = LocalDocumentStore(
         path=work / "processed" / "blocks.json", strict_vector_errors=True
     )
     # Inject the index path directly instead of relying on settings/env.
     store.vector_index_factory = lambda: VectorIndex(path=work / "qdrant")
-    store.save_blocks(result.blocks)
+    store.save_blocks(blocks)
     if pipeline == "enterprise":
         from contextiq.ingestion.adaptive_chunker import AdaptiveChunker  # noqa: PLC0415
-        store.index_blocks_enterprise(AdaptiveChunker().process_blocks(result.blocks))
+        store.index_blocks_enterprise(AdaptiveChunker().process_blocks(blocks))
     else:
-        store.index_blocks(result.blocks)
-    pages = [b.page for b in result.blocks if b.page is not None]
+        store.index_blocks(blocks)
+    pages = [b.page for b in blocks if b.page is not None]
     page_count = max(pages) if pages else 0
-    doc_id = result.blocks[0].document_id if result.blocks else ""
+    doc_id = blocks[0].document_id if blocks else ""
     return store, doc_id, page_count
 
 
@@ -89,7 +97,8 @@ class _DocScratch:
 
 
 def evaluate(
-    limit_docs: int | None = 3, blocks_per_query: int = 30, pipeline: str = "legacy"
+    limit_docs: int | None = 3, blocks_per_query: int = 30, pipeline: str = "legacy",
+    score_mode: str = "first_page", extractor: str = "standard",
 ) -> MMLBResult:
     docs = load_docs(limit_docs=limit_docs)
     res = MMLBResult()
@@ -102,33 +111,50 @@ def evaluate(
             pdf = fetch_pdf(doc.doc_id, cache)
             with tempfile.TemporaryDirectory(prefix="mmlb_idx_") as tmp:
                 store, ingested_id, page_count = _ingest_isolated(
-                    pdf, Path(tmp), pipeline=pipeline
+                    pdf, Path(tmp), pipeline=pipeline, extractor=extractor
                 )
                 scratch = _DocScratch()
                 for q in doc.questions:
                     if not q.answerable:
                         continue
-                    blocks = (
-                        store.search_enterprise(q.question, limit=blocks_per_query)
-                        if pipeline == "enterprise"
-                        else store.search(q.question, limit=blocks_per_query)
-                    )
-                    for b in blocks:  # isolation self-check
+                    if pipeline == "enterprise" and score_mode == "page_sum":
+                        scored = store.search_enterprise_with_scores(
+                            q.question, limit=blocks_per_query
+                        )
+                        hit_blocks = [b for b, _ in scored]
+                        sp = [(b.page, s) for b, s in scored]
+                    else:
+                        hit_blocks = (
+                            store.search_enterprise(q.question, limit=blocks_per_query)
+                            if pipeline == "enterprise"
+                            else store.search(q.question, limit=blocks_per_query)
+                        )
+                        sp = [(b.page, 1.0 / (i + 1)) for i, b in enumerate(hit_blocks)]
+                    for b in hit_blocks:  # isolation self-check
                         if b.document_id != ingested_id:
                             raise RuntimeError(
                                 f"cross-doc leak: {b.document_id} != {ingested_id}"
                             )
-                    if not blocks:
-                        # search_enterprise silently falls back to an empty standard
-                        # collection in enterprise mode — surface it, do not hide a 0.
+                    if not hit_blocks:
                         res.empty_result_queries += 1
                         logger.warning("empty retrieval (possible silent fallback): %s",
                                        q.question[:60])
-                    pages = [b.page for b in blocks]
-                    r5 = page_recall_at_k(q.evidence_pages, pages, 5)
-                    r10 = page_recall_at_k(q.evidence_pages, pages, 10)
+                    if score_mode == "page_sum":
+                        r5 = page_recall_scored(q.evidence_pages, sp, 5)
+                        r10 = page_recall_scored(q.evidence_pages, sp, 10)
+                    else:
+                        pages = [p for p, _ in sp]
+                        r5 = page_recall_at_k(q.evidence_pages, pages, 5)
+                        r10 = page_recall_at_k(q.evidence_pages, pages, 10)
                     if r5 is None or r10 is None:
                         continue
+                    res.records.append({
+                        "doc_id": doc.doc_id,
+                        "evidence_sources": q.evidence_sources,
+                        "gold_pages": sorted(q.evidence_pages),
+                        "recall@5": r5, "recall@10": r10,
+                        "n_blocks": len(hit_blocks),
+                    })
                     p = page_count or 1
                     scratch.r5.append(r5)
                     scratch.r10.append(r10)
