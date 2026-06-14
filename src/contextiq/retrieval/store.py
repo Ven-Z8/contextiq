@@ -451,14 +451,6 @@ class LocalDocumentStore:
             query=query,
         )
 
-    def _financial_anchor_candidates(
-        self, query: str, limit: int
-    ) -> list[DocumentBlock]:
-        return self.candidate_generator.financial_anchor_candidates(
-            query=query,
-            limit=limit,
-        )
-
     def _section_anchor_candidates(
         self, query: str, limit: int
     ) -> list[DocumentBlock]:
@@ -467,20 +459,10 @@ class LocalDocumentStore:
             limit=limit,
         )
 
-    def _heading_expansion_window(
-        self, query: str | None, heading: DocumentBlock
-    ) -> int:
-        return self.ranker.heading_expansion_window(query=query, heading=heading)
-
     def _rerank_candidates(
         self, query: str, candidates: list[DocumentBlock]
     ) -> list[DocumentBlock]:
         return self.ranker.rerank(query=query, candidates=candidates)
-
-    def _apply_intent_precision(
-        self, query: str, candidates: list[DocumentBlock]
-    ) -> list[DocumentBlock]:
-        return self.ranker.apply_intent_precision(query=query, candidates=candidates)
 
     def stats(self) -> dict[str, int]:
         blocks = self.load_blocks()
