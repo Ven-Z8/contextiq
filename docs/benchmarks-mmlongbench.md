@@ -36,7 +36,7 @@ Absolute page-recall on short docs is dominated by a high random floor (taking 1
 |---|---:|---:|---|---:|---:|---:|---:|---:|---:|
 | Legacy lexical, 3-doc subset | 3 | 18 | 23/23/15 | 0.79 | 0.26 | +0.53 | 0.87 | 0.53 | +0.35 |
 | **Enterprise (SPLADE+ColBERT+adaptive), 3-doc subset** | 3 | 18 | 23/23/15 | **0.88** | 0.26 | **+0.62** | 0.92 | 0.53 | +0.39 |
-| Enterprise, 10-doc subset (#23 → full corpus pending) | 10 | _TODO_ | _TODO_ | _TODO_ | | | | | |
+| **Enterprise, 10-doc representative subset** (docs 15-112pp) | 10 | 64 | 15-112 | **0.67** | 0.19 | +0.48 | 0.79 | 0.37 | +0.42 |
 
 **Phase 1 finding:** the marketed SPLADE+ColBERT+adaptive-chunking stack was dead code (#13/#14). Wiring it into
 the eval (`--pipeline enterprise`) lifts the same 3-doc subset from **0.79 → 0.88@5** (lift +0.53 → +0.62) — real
@@ -46,6 +46,12 @@ retrieval gain from connecting the real architecture, with `.page` preserved thr
 on short docs the random floor alone is 0.53 — i.e. @10 here is mostly "the doc is short", which is exactly why
 we lead with @5 lift. Run with `strict_vector_errors=True` and a per-question cross-doc isolation assertion
 (0 failed docs, no leak), so the number is not propped up by silent vector→lexical fallback or contamination.
+
+### The representative number is 0.67@5, not 0.88
+The 3-doc subset (short Pew reports) inflated to 0.88. On a **10-doc representative set** including long docs
+(up to 112pp), enterprise page-Recall@5 is **0.67** (lift +0.48 over random, 0 empty-result/fallback queries —
+trustworthy). This is the honest current state: **+0.18 below the 0.85 target.** Phase 2 (retrieval-correctness:
+intent biasing, AdaptiveChunker fixes, post-retrieval re-rank) must close the gap. Full 135-corpus run is #23.
 
 ### Honest caveats
 - **Short-doc subset, not representative.** 3 dataset-order Pew reports (~15-23pp vs corpus avg 47.5pp), n=18
