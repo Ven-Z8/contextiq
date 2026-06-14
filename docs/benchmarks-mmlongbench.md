@@ -1,0 +1,62 @@
+# MMLongBench-Doc — Page-Level Retrieval Benchmark
+
+> **Headline metric (PRD):** page-level **Recall@5 ≥ 0.85** on MMLongBench-Doc, reproducible from a clean clone.
+
+## What this measures
+
+MMLongBench-Doc ([paper](https://arxiv.org/abs/2407.01523), [HF](https://huggingface.co/datasets/yubo2333/MMLongBench-Doc))
+is 135 long PDFs (avg 47.5 pages) with 1,082 questions, each annotated with the **evidence page number(s)**
+that contain the answer (text/table/chart/figure/layout). We score *retrieval*, not answer generation:
+
+- For each answerable question, retrieve blocks via the live retrieval path, map each block to its source
+  page, dedupe pages in rank order, take the top-k distinct **pages**, and compute
+  `Recall@k = |gold_pages ∩ top_k_pages| / |gold_pages|`.
+- Unanswerable questions (empty evidence) are excluded from retrieval recall (scored separately later).
+- Each document is ingested into an **isolated** local index so retrieval is naturally scoped to it
+  (the `document_id` payload filter is a no-op in local Qdrant — see issue #17).
+
+This is page-level **retrieval** recall — a different, upstream quantity from MMLongBench's published
+**answer** F1 (where GPT-4o scores 44.9%). We never conflate the two; answer quality is reported separately.
+
+## Reproducing
+
+```bash
+make eval-mmlongbench DOCS=3      # subset; DOCS=-1 for the full 135-doc corpus
+```
+
+The harness downloads questions (datasets-server API) and PDFs (`huggingface_hub`) at runtime. The dataset is
+**CC-BY-NC 4.0 (research only)**, so no dataset content is vendored into this repo — only the eval code.
+
+## Results
+
+Absolute page-recall on short docs is dominated by a high random floor (taking 10 distinct pages of a
+~15-23pp doc is 43-67% of it), so we report **lift over a uniform random page-picker** (`E[recall@k] = min(k/pages, 1)`).
+
+| Run | Docs | Q | pages | Recall@5 | random@5 | **lift@5** | Recall@10 | random@10 | lift@10 |
+|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
+| **Baseline (legacy live path), short-doc subset** — 2026-06-12 | 3 | 18 | 23/23/15 | 0.79 | 0.26 | **+0.53** | 0.87 | 0.53 | +0.35 |
+| Full 135-doc corpus (#23) | — | — | — | _TODO_ | | | | | |
+
+**lift@5 = +0.53** is genuine retrieval signal (0.79 vs 0.26 random). lift@10 is smaller (+0.35) because at k=10
+on short docs the random floor alone is 0.53 — i.e. @10 here is mostly "the doc is short", which is exactly why
+we lead with @5 lift. Run with `strict_vector_errors=True` and a per-question cross-doc isolation assertion
+(0 failed docs, no leak), so the number is not propped up by silent vector→lexical fallback or contamination.
+
+### Honest caveats
+- **Short-doc subset, not representative.** 3 dataset-order Pew reports (~15-23pp vs corpus avg 47.5pp), n=18
+  (high variance, no CI yet — see #23). The full-corpus number will be lower; long/table-heavy docs are where the
+  live path fails (a real 10-K query for "net sales Products vs Services" returned litigation prose, not the table).
+- **Legacy pipeline, not the marketed stack.** This measures the currently-wired lexical/heuristic path, **not**
+  SPLADE+ColBERT (dead code, #13). Phase 1 wires the real pipeline, then we re-baseline.
+- **FAST profile = no visual enrichment** (#25): chart-evidence recall here is carried by same-page prose, not the
+  VLM pipeline. **Page-index alignment** (1-indexed, absolute across batches) is verified but not yet test-pinned (#24).
+  The live path's section-dedup + parent-resolver slightly **deflate** the number (#26), so 0.79 is conservative.
+
+### Published context (answer accuracy, not retrieval)
+| System | MMLongBench-Doc answer F1 |
+|---|---:|
+| GPT-4o | 44.9% |
+| GPT-4V | 31.4% |
+
+_Retrieval-recall leaderboards for MMLongBench-Doc are not standardized; we report our page-level recall
+transparently with the methodology above so it is reproducible and falsifiable._

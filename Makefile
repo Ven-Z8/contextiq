@@ -20,3 +20,6 @@ bench:
 
 eval:
 	uv run contextiq eval-retrieval --limit 20 --k 10
+
+eval-mmlongbench:
+	uv run --extra dev --extra eval python scripts/eval_mmlongbench.py --limit-docs $(or $(DOCS),3)
