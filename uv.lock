@@ -407,6 +407,9 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
 ]
+eval = [
+    { name = "huggingface-hub" },
+]
 ui = [
     { name = "gradio" },
 ]
@@ -418,6 +421,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.121.0" },
     { name = "gradio", marker = "extra == 'ui'", specifier = ">=5.50.0" },
     { name = "httpx", specifier = ">=0.28.0" },
+    { name = "huggingface-hub", marker = "extra == 'eval'", specifier = ">=0.20" },
     { name = "langgraph", marker = "extra == 'agent'", specifier = ">=1.0.0" },
     { name = "mcp", marker = "extra == 'agent'", specifier = ">=1.20.0" },
     { name = "openpyxl", specifier = ">=3.1.5" },
@@ -435,7 +439,7 @@ requires-dist = [
     { name = "typer", specifier = ">=0.20.0" },
     { name = "uvicorn", specifier = ">=0.38.0" },
 ]
-provides-extras = ["dev", "agent", "ui"]
+provides-extras = ["eval", "dev", "agent", "ui"]
 
 [[package]]
 name = "coverage"

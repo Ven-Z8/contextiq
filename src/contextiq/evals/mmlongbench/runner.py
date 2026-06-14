@@ -11,7 +11,6 @@ isolation (short docs have a high random floor by construction).
 from __future__ import annotations
 
 import logging
-import os
 import statistics
 import tempfile
 from dataclasses import dataclass, field
@@ -54,21 +53,33 @@ class MMLBResult:
 
 
 def _ingest_isolated(pdf: Path, work: Path):
-    os.environ["CONTEXTIQ_DATA_DIR"] = str(work)
-    os.environ["CONTEXTIQ_QDRANT_PATH"] = str(work / "qdrant")
+    """Ingest one PDF into a store+index rooted at `work`, via explicit paths
+    (no global os.environ mutation — paths are injected directly)."""
     from contextiq.ingestion.batch import BatchIngestor  # noqa: PLC0415
     from contextiq.ingestion.profiles import FAST  # noqa: PLC0415
     from contextiq.retrieval.store import LocalDocumentStore  # noqa: PLC0415
+    from contextiq.retrieval.vector_index import VectorIndex  # noqa: PLC0415
 
     result = BatchIngestor(profile=FAST).ingest(pdf)
-    # strict: surface vector failures instead of silently degrading to lexical-only.
-    store = LocalDocumentStore(strict_vector_errors=True)
+    store = LocalDocumentStore(
+        path=work / "processed" / "blocks.json", strict_vector_errors=True
+    )
+    # Inject the index path directly instead of relying on settings/env.
+    store.vector_index_factory = lambda: VectorIndex(path=work / "qdrant")
     store.save_blocks(result.blocks)
     store.index_blocks(result.blocks)
     pages = [b.page for b in result.blocks if b.page is not None]
     page_count = max(pages) if pages else 0
     doc_id = result.blocks[0].document_id if result.blocks else ""
     return store, doc_id, page_count
+
+
+@dataclass
+class _DocScratch:
+    r5: list[float] = field(default_factory=list)
+    r10: list[float] = field(default_factory=list)
+    f5: list[float] = field(default_factory=list)
+    f10: list[float] = field(default_factory=list)
 
 
 def evaluate(limit_docs: int | None = 3, blocks_per_query: int = 30) -> MMLBResult:
@@ -83,13 +94,12 @@ def evaluate(limit_docs: int | None = 3, blocks_per_query: int = 30) -> MMLBResu
             pdf = fetch_pdf(doc.doc_id, cache)
             with tempfile.TemporaryDirectory(prefix="mmlb_idx_") as tmp:
                 store, ingested_id, page_count = _ingest_isolated(pdf, Path(tmp))
-                res.doc_pages[doc.doc_id] = page_count
+                scratch = _DocScratch()
                 for q in doc.questions:
                     if not q.answerable:
                         continue
                     blocks = store.search(q.question, limit=blocks_per_query)
-                    # isolation self-check: every block must come from THIS doc.
-                    for b in blocks:
+                    for b in blocks:  # isolation self-check
                         if b.document_id != ingested_id:
                             raise RuntimeError(
                                 f"cross-doc leak: {b.document_id} != {ingested_id}"
@@ -97,17 +107,22 @@ def evaluate(limit_docs: int | None = 3, blocks_per_query: int = 30) -> MMLBResu
                     pages = [b.page for b in blocks]
                     r5 = page_recall_at_k(q.evidence_pages, pages, 5)
                     r10 = page_recall_at_k(q.evidence_pages, pages, 10)
-                    if r5 is None:
+                    if r5 is None or r10 is None:
                         continue
-                    res.answerable_questions += 1
-                    res.recall_at_5.append(r5)
-                    res.recall_at_10.append(r10)
-                    # uniform random page-picker floor: E[recall@k] = min(k/P, 1).
                     p = page_count or 1
-                    res.random_at_5.append(min(5 / p, 1.0))
-                    res.random_at_10.append(min(10 / p, 1.0))
+                    scratch.r5.append(r5)
+                    scratch.r10.append(r10)
+                    scratch.f5.append(min(5 / p, 1.0))
+                    scratch.f10.append(min(10 / p, 1.0))
+            # merge only after the whole doc succeeded (no partial-recall pollution)
+            res.answerable_questions += len(scratch.r5)
+            res.recall_at_5.extend(scratch.r5)
+            res.recall_at_10.extend(scratch.r10)
+            res.random_at_5.extend(scratch.f5)
+            res.random_at_10.extend(scratch.f10)
+            res.doc_pages[doc.doc_id] = page_count
             logger.info("scored doc %s (%d pages)", doc.doc_id, page_count)
         except Exception as exc:
-            logger.warning("doc %s failed: %s", doc.doc_id, exc)
+            logger.warning("doc %s failed (scores discarded): %s", doc.doc_id, exc)
             res.failed_docs.append(doc.doc_id)
     return res

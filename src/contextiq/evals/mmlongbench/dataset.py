@@ -7,12 +7,15 @@ on demand via huggingface_hub and cached locally.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
 
 from contextiq.evals.mmlongbench.page_recall import parse_evidence_pages
+
+logger = logging.getLogger(__name__)
 
 _REPO = "yubo2333/MMLongBench-Doc"
 _ROWS_API = "https://datasets-server.huggingface.co/rows"
@@ -49,8 +52,12 @@ def _fetch_rows(offset: int, length: int) -> list[dict]:
     return [r["row"] for r in resp.json().get("rows", [])]
 
 
-def load_docs(limit_docs: int | None = None, max_scan: int = 1082) -> list[MMLBDoc]:
-    """Return docs (grouped questions) in dataset order, up to limit_docs."""
+def load_docs(limit_docs: int | None = None, max_scan: int = 100_000) -> list[MMLBDoc]:
+    """Return docs (grouped questions) in dataset order, up to limit_docs.
+
+    Pagination stops on the natural empty-rows break; max_scan is only a runaway
+    guard and logs a warning if ever hit (so a grown dataset isn't silently truncated).
+    """
     docs: dict[str, MMLBDoc] = {}
     order: list[str] = []
     offset = 0
