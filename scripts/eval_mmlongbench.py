@@ -13,11 +13,12 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--limit-docs", type=int, default=3, help="docs to evaluate (None=all 135)")
     p.add_argument("--blocks-per-query", type=int, default=30)
+    p.add_argument("--pipeline", choices=["legacy", "enterprise"], default="legacy")
     args = p.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     limit = None if args.limit_docs < 0 else args.limit_docs
-    result = evaluate(limit_docs=limit, blocks_per_query=args.blocks_per_query)
-    print("\n=== MMLongBench-Doc page-level retrieval (ContextIQ, live path) ===")
+    result = evaluate(limit_docs=limit, blocks_per_query=args.blocks_per_query, pipeline=args.pipeline)
+    print(f"\n=== MMLongBench-Doc page-level retrieval (ContextIQ, {args.pipeline} pipeline) ===")
     print(json.dumps(result.summary(), indent=2))
 
 
