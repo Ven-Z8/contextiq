@@ -17,8 +17,12 @@ def main() -> None:
     args = p.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     limit = None if args.limit_docs < 0 else args.limit_docs
-    result = evaluate(limit_docs=limit, blocks_per_query=args.blocks_per_query, pipeline=args.pipeline)
-    print(f"\n=== MMLongBench-Doc page-level retrieval (ContextIQ, {args.pipeline} pipeline) ===")
+    result = evaluate(
+        limit_docs=limit,
+        blocks_per_query=args.blocks_per_query,
+        pipeline=args.pipeline,
+    )
+    print(f"\n=== MMLongBench-Doc page-recall (ContextIQ, {args.pipeline}) ===")
     print(json.dumps(result.summary(), indent=2))
 
 

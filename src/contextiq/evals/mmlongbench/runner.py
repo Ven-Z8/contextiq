@@ -32,6 +32,7 @@ class MMLBResult:
     random_at_5: list[float] = field(default_factory=list)
     random_at_10: list[float] = field(default_factory=list)
     doc_pages: dict[str, int] = field(default_factory=dict)
+    empty_result_queries: int = 0
 
     def summary(self) -> dict:
         def mean(xs: list[float]) -> float:
@@ -43,6 +44,7 @@ class MMLBResult:
             "failed_docs": len(self.failed_docs),
             "answerable_questions": self.answerable_questions,
             "doc_page_counts": self.doc_pages,
+            "empty_result_queries": self.empty_result_queries,
             "page_recall@5": r5,
             "random_floor@5": f5,
             "lift@5": round(r5 - f5, 4),
@@ -116,6 +118,12 @@ def evaluate(
                             raise RuntimeError(
                                 f"cross-doc leak: {b.document_id} != {ingested_id}"
                             )
+                    if not blocks:
+                        # search_enterprise silently falls back to an empty standard
+                        # collection in enterprise mode — surface it, do not hide a 0.
+                        res.empty_result_queries += 1
+                        logger.warning("empty retrieval (possible silent fallback): %s",
+                                       q.question[:60])
                     pages = [b.page for b in blocks]
                     r5 = page_recall_at_k(q.evidence_pages, pages, 5)
                     r10 = page_recall_at_k(q.evidence_pages, pages, 10)

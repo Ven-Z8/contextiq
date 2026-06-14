@@ -32,11 +32,11 @@ The harness downloads questions (datasets-server API) and PDFs (`huggingface_hub
 Absolute page-recall on short docs is dominated by a high random floor (taking 10 distinct pages of a
 ~15-23pp doc is 43-67% of it), so we report **lift over a uniform random page-picker** (`E[recall@k] = min(k/pages, 1)`).
 
-| Run | Docs | Q | Recall@5 | random@5 | **lift@5** | Recall@10 |
-|---|---:|---:|---:|---:|---:|---:|
-| Legacy lexical path, 3-doc subset | 3 | 18 | 0.79 | 0.26 | +0.53 | 0.87 |
-| **Enterprise (SPLADE+ColBERT+adaptive), 3-doc subset** | 3 | 18 | **0.88** | 0.26 | **+0.62** | 0.92 |
-| Enterprise, 10-doc subset (#23 → full corpus pending) | 10 | _TODO_ | _TODO_ | | | |
+| Run | Docs | Q | pages | Recall@5 | random@5 | **lift@5** | Recall@10 | random@10 | lift@10 |
+|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
+| Legacy lexical, 3-doc subset | 3 | 18 | 23/23/15 | 0.79 | 0.26 | +0.53 | 0.87 | 0.53 | +0.35 |
+| **Enterprise (SPLADE+ColBERT+adaptive), 3-doc subset** | 3 | 18 | 23/23/15 | **0.88** | 0.26 | **+0.62** | 0.92 | 0.53 | +0.39 |
+| Enterprise, 10-doc subset (#23 → full corpus pending) | 10 | _TODO_ | _TODO_ | _TODO_ | | | | | |
 
 **Phase 1 finding:** the marketed SPLADE+ColBERT+adaptive-chunking stack was dead code (#13/#14). Wiring it into
 the eval (`--pipeline enterprise`) lifts the same 3-doc subset from **0.79 → 0.88@5** (lift +0.53 → +0.62) — real
