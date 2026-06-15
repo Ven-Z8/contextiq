@@ -10,6 +10,7 @@ isolation (short docs have a high random floor by construction).
 
 from __future__ import annotations
 
+import gc
 import logging
 import statistics
 import tempfile
@@ -182,6 +183,10 @@ def evaluate(
             res.random_at_10.extend(scratch.f10)
             res.doc_pages[doc.doc_id] = page_count
             logger.info("scored doc %s (%d pages)", doc.doc_id, page_count)
+            if hasattr(store, "close"):
+                store.close()
+            del store
+            gc.collect()
         except Exception as exc:
             logger.warning("doc %s failed (scores discarded): %s", doc.doc_id, exc)
             res.failed_docs.append(doc.doc_id)

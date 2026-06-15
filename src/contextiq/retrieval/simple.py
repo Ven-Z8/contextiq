@@ -77,3 +77,9 @@ class SimpleRetriever:
         scores = list(self._rerank.rerank(query, [c.text for c in cands]))
         order = sorted(range(len(cands)), key=lambda i: scores[i], reverse=True)
         return [cands[i] for i in order]
+
+    def close(self) -> None:
+        try:
+            self.client.close()
+        except Exception:
+            pass
