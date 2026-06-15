@@ -63,6 +63,13 @@ def _ingest_isolated(pdf: Path, work: Path, pipeline: str = "legacy", extractor:
     from contextiq.retrieval.store import LocalDocumentStore  # noqa: PLC0415
     from contextiq.retrieval.vector_index import VectorIndex  # noqa: PLC0415
 
+    if pipeline == "simple":
+        from contextiq.retrieval.simple import SimpleRetriever  # noqa: PLC0415
+        blocks = BatchIngestor(profile=FAST).ingest(pdf).blocks
+        retriever = SimpleRetriever(qdrant_path=work / "qdrant")
+        retriever.index(blocks)
+        pages = [b.page for b in blocks if b.page is not None]
+        return retriever, (blocks[0].document_id if blocks else ""), (max(pages) if pages else 0)
     if extractor == "vlm":
         from contextiq.ingestion.extractors.docling_vlm import (
             DoclingVLMExtractor,  # noqa: PLC0415,E501
@@ -119,7 +126,10 @@ def evaluate(
                 for q in doc.questions:
                     if not q.answerable:
                         continue
-                    if pipeline == "enterprise" and score_mode == "page_sum":
+                    if pipeline == "simple":
+                        hit_blocks = store.search(q.question, limit=blocks_per_query)
+                        sp = [(b.page, 1.0 / (i + 1)) for i, b in enumerate(hit_blocks)]
+                    elif pipeline == "enterprise" and score_mode == "page_sum":
                         scored = store.search_enterprise_with_scores(
                             q.question, limit=blocks_per_query
                         )

@@ -13,7 +13,7 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--limit-docs", type=int, default=3, help="docs to evaluate (None=all 135)")
     p.add_argument("--blocks-per-query", type=int, default=30)
-    p.add_argument("--pipeline", choices=["legacy", "enterprise"], default="legacy")
+    p.add_argument("--pipeline", choices=["legacy", "enterprise", "simple"], default="legacy")
     p.add_argument("--score-mode", choices=["first_page", "page_sum"], default="first_page")
     p.add_argument("--extractor", choices=["standard", "vlm"], default="standard")
     args = p.parse_args()
