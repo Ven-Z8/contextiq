@@ -20,6 +20,13 @@ def _detect_mps() -> bool:
         return False
 
 
+def _mlx_runtime_available() -> bool:
+    """True only if the MLX runtime is importable. Selecting the MLX model spec
+    without it makes Docling silently fall back to a ~10x slower path."""
+    import importlib.util  # noqa: PLC0415
+    return importlib.util.find_spec("mlx_vlm") is not None
+
+
 class DoclingVLMExtractor:
     """VLM-based extraction with automatic fallback to the standard pipeline."""
 
@@ -29,11 +36,15 @@ class DoclingVLMExtractor:
         self,
         *,
         has_mps: bool | None = None,
+        mlx_available: bool | None = None,
         fallback: Extractor | None = None,
     ) -> None:
         self._has_mps = _detect_mps() if has_mps is None else has_mps
+        mlx_ok = _mlx_runtime_available() if mlx_available is None else mlx_available
+        # Use MLX only when MPS is present AND the MLX runtime is installed —
+        # otherwise the MLX model spec degrades to a ~10x slower transformers path.
         self.vlm_model_name = (
-            "GRANITEDOCLING_MLX" if self._has_mps else "GRANITEDOCLING_TRANSFORMERS"
+            "GRANITEDOCLING_MLX" if (self._has_mps and mlx_ok) else "GRANITEDOCLING_TRANSFORMERS"
         )
         self._fallback = fallback or DoclingStandardExtractor()
         self._standard_walk = DoclingStandardExtractor()

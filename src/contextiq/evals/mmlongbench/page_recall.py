@@ -47,3 +47,21 @@ def page_recall_at_k(
         return None
     predicted = set(top_k_pages(ranked_block_pages, k))
     return len(gold_pages & predicted) / len(gold_pages)
+
+
+def page_recall_scored(
+    gold_pages: set[int], scored_pages: list[tuple[int | None, float]], k: int
+) -> float | None:
+    """Recall@k where pages are ranked by SUMMED block score (evidence density),
+    not by first-occurrence. A page with several strong blocks outranks a page
+    with one mediocre block — the right page-level retrieval semantics.
+    """
+    if not gold_pages:
+        return None
+    agg: dict[int, float] = {}
+    for page, score in scored_pages:
+        if page is None:
+            continue
+        agg[page] = agg.get(page, 0.0) + score
+    top = sorted(agg, key=lambda p: agg[p], reverse=True)[:k]
+    return len(gold_pages & set(top)) / len(gold_pages)
