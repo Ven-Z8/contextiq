@@ -55,7 +55,7 @@ class SimpleRetriever:
 
     def index(self, blocks: list[DocumentBlock]) -> int:
         models = self._models
-        vecs = list(self._embed.embed([b.text for b in blocks]))  # passage embeddings
+        vecs = list(self._embed.embed([b.text for b in blocks], batch_size=32))  # passage embeddings
         points = []
         for i, (b, v) in enumerate(zip(blocks, vecs, strict=True)):
             self._blocks[b.block_id] = b
