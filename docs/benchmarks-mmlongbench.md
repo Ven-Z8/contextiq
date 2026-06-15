@@ -69,6 +69,16 @@ Misses concentrate on **Figure (0.47)** and **Layout (0.33)** — visual evidenc
 reaching 0.85 requires real visual extraction (the `DoclingVLMExtractor` thesis). page-sum aggregation was tried
 and *regressed* (0.67→0.63) — it dilutes precise single-block evidence; best-block-rank is kept.
 
+
+
+### NEGATIVE RESULT: granite-docling VLM extraction is worse (do not pursue)
+Tested the project's core thesis — swap the FAST standard extractor for the granite-docling-258M VLM (`--extractor vlm`)
+on the same 10 docs. It **regressed**: page-Recall@5 **0.67 → 0.59**, and *worsened the visual categories it was meant to fix*
+(Figure 0.47 → 0.28, Chart 0.79 → 0.69), while being ~10x slower (a 112-page doc took >15 min). A 258M VLM produces
+lower-quality text than the dedicated TableFormer+layout pipeline. **The standard pipeline (0.67) is the better extractor.**
+Implication: closing the visual gap needs either a far stronger extractor (e.g. Mistral OCR API) or **multimodal
+page-image retrieval (ColPali)** — not a small local VLM. (MLX-runtime fix + harness `--extractor` option retained for future engines.)
+
 ### Honest caveats
 - **Short-doc subset, not representative.** 3 dataset-order Pew reports (~15-23pp vs corpus avg 47.5pp), n=18
   (high variance, no CI yet — see #23). The full-corpus number will be lower; long/table-heavy docs are where the
