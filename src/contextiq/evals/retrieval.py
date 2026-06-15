@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import json
 import math
 from collections.abc import Callable
 from pathlib import Path
 
-from pydantic import BaseModel, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from contextiq.ingestion.models import DocumentBlock
 
@@ -333,12 +332,3 @@ def _matches_anchor(block: DocumentBlock, anchor: ContentAnchor) -> bool:
     return all(fragment.casefold() in block_text for fragment in anchor.text_contains)
 
 
-RetrievalEvalCaseList = TypeAdapter(list[RetrievalEvalCase])
-
-
-def write_qrels(path: Path, cases: list[RetrievalEvalCase]) -> None:
-    """Write qrels in the same shape accepted by load_qrels."""
-
-    payload = {"queries": RetrievalEvalCaseList.dump_python(cases, mode="json")}
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
