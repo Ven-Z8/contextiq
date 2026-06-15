@@ -79,6 +79,16 @@ lower-quality text than the dedicated TableFormer+layout pipeline. **The standar
 Implication: closing the visual gap needs either a far stronger extractor (e.g. Mistral OCR API) or **multimodal
 page-image retrieval (ColPali)** — not a small local VLM. (MLX-runtime fix + harness `--extractor` option retained for future engines.)
 
+
+
+### PIVOTAL FINDING: extraction is NOT the bottleneck — retrieval is
+Three extractors on the same 10 docs give the **same** page-Recall@5: standard Docling **0.67**, granite-VLM **0.59**
+(worse), Claude-vision **0.67** — and Claude's per-source numbers are byte-identical to standard
+(Chart 0.79, Text 0.78, Figure 0.47, Layout 0.33). Claude richly transcribes every chart/figure, yet the same pages
+rank top-5. **The evidence is in the index; single-shot retrieval just doesn't rank the gold page into the top 5 for
+Figure/Layout questions.** So the lever is RETRIEVAL ranking (query expansion, reranking, intent biasing, or
+iterative/agentic retrieval), not extraction. (Claude-vision extractor retained as a swappable engine + this evidence.)
+
 ### Honest caveats
 - **Short-doc subset, not representative.** 3 dataset-order Pew reports (~15-23pp vs corpus avg 47.5pp), n=18
   (high variance, no CI yet — see #23). The full-corpus number will be lower; long/table-heavy docs are where the
