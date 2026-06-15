@@ -79,6 +79,18 @@ lower-quality text than the dedicated TableFormer+layout pipeline. **The standar
 Implication: closing the visual gap needs either a far stronger extractor (e.g. Mistral OCR API) or **multimodal
 page-image retrieval (ColPali)** — not a small local VLM. (MLX-runtime fix + harness `--extractor` option retained for future engines.)
 
+
+
+### SIMPLIFICATION VALIDATED: ~50 LOC matches ~2,800 LOC
+Head-to-head on the same 4 docs (25 answerable Q, 0 empty):
+- **Simple** (bge-base-en-v1.5 dense + bge-reranker-base cross-encoder, ~50 LOC): page-Recall@5 **0.795**, @10 0.872
+- **Enterprise** (SPLADE+ColBERT+RRF+7-profile adaptive chunker+intent router, ~2,800 LOC / 150 fns): @5 **0.808**, @10 0.888
+
+A ~1-point gap = noise on n=25. The entire heavy stack buys nothing measurable -> **adopt the simple two-stage
+pipeline and delete ~2,000 LOC.** The path to 0.85 is NOT architecture (both ~equal); it is a stronger embedder
+(bge-large/Qwen3 — OOM'd the local Mac on the 112-page doc) and possibly visual retrieval, both needing more RAM/GPU
+than this machine. Local hardware is the wall: heavy embedders can't hold large docs in memory here.
+
 ### Honest caveats
 - **Short-doc subset, not representative.** 3 dataset-order Pew reports (~15-23pp vs corpus avg 47.5pp), n=18
   (high variance, no CI yet — see #23). The full-corpus number will be lower; long/table-heavy docs are where the
