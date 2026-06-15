@@ -12,6 +12,23 @@ from pathlib import Path
 
 from contextiq.ingestion.models import DocumentBlock
 
+_EMBED_CACHE: dict[str, object] = {}
+_RERANK_CACHE: dict[str, object] = {}
+
+
+def _get_embed(model: str):
+    from fastembed import TextEmbedding  # noqa: PLC0415
+    if model not in _EMBED_CACHE:
+        _EMBED_CACHE[model] = TextEmbedding(model)
+    return _EMBED_CACHE[model]
+
+
+def _get_rerank(model: str):
+    from fastembed.rerank.cross_encoder import TextCrossEncoder  # noqa: PLC0415
+    if model not in _RERANK_CACHE:
+        _RERANK_CACHE[model] = TextCrossEncoder(model)
+    return _RERANK_CACHE[model]
+
 
 class SimpleRetriever:
     def __init__(
@@ -23,13 +40,11 @@ class SimpleRetriever:
         dim: int = 1024,
         collection: str = "simple",
     ) -> None:
-        from fastembed import TextEmbedding  # noqa: PLC0415
-        from fastembed.rerank.cross_encoder import TextCrossEncoder  # noqa: PLC0415
         from qdrant_client import QdrantClient, models  # noqa: PLC0415
 
         self._models = models
-        self._embed = TextEmbedding(embed_model)
-        self._rerank = TextCrossEncoder(reranker_model)
+        self._embed = _get_embed(embed_model)  # shared across docs (no per-doc reload)
+        self._rerank = _get_rerank(reranker_model)
         self.client = QdrantClient(path=str(qdrant_path))
         self.collection = collection
         self.client.create_collection(
