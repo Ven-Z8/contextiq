@@ -15,7 +15,7 @@ def main() -> None:
     p.add_argument("--blocks-per-query", type=int, default=30)
     p.add_argument("--pipeline", choices=["legacy", "enterprise"], default="legacy")
     p.add_argument("--score-mode", choices=["first_page", "page_sum"], default="first_page")
-    p.add_argument("--extractor", choices=["standard", "vlm"], default="standard")
+    p.add_argument("--extractor", choices=["standard", "vlm", "claude"], default="standard")
     args = p.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     limit = None if args.limit_docs < 0 else args.limit_docs
