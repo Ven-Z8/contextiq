@@ -35,9 +35,9 @@ class SimpleRetriever:
         self,
         *,
         qdrant_path: Path,
-        embed_model: str = "BAAI/bge-large-en-v1.5",
+        embed_model: str = "BAAI/bge-base-en-v1.5",
         reranker_model: str = "BAAI/bge-reranker-base",
-        dim: int = 1024,
+        dim: int = 768,
         collection: str = "simple",
     ) -> None:
         from qdrant_client import QdrantClient, models  # noqa: PLC0415
