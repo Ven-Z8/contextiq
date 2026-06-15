@@ -94,6 +94,8 @@ class _DocScratch:
     r10: list[float] = field(default_factory=list)
     f5: list[float] = field(default_factory=list)
     f10: list[float] = field(default_factory=list)
+    records: list[dict] = field(default_factory=list)
+    empties: int = 0
 
 
 def evaluate(
@@ -136,7 +138,7 @@ def evaluate(
                                 f"cross-doc leak: {b.document_id} != {ingested_id}"
                             )
                     if not hit_blocks:
-                        res.empty_result_queries += 1
+                        scratch.empties += 1
                         logger.warning("empty retrieval (possible silent fallback): %s",
                                        q.question[:60])
                     if score_mode == "page_sum":
@@ -148,7 +150,7 @@ def evaluate(
                         r10 = page_recall_at_k(q.evidence_pages, pages, 10)
                     if r5 is None or r10 is None:
                         continue
-                    res.records.append({
+                    scratch.records.append({
                         "doc_id": doc.doc_id,
                         "evidence_sources": q.evidence_sources,
                         "gold_pages": sorted(q.evidence_pages),
@@ -162,6 +164,8 @@ def evaluate(
                     scratch.f10.append(min(10 / p, 1.0))
             # merge only after the whole doc succeeded (no partial-recall pollution)
             res.answerable_questions += len(scratch.r5)
+            res.records.extend(scratch.records)
+            res.empty_result_queries += scratch.empties
             res.recall_at_5.extend(scratch.r5)
             res.recall_at_10.extend(scratch.r10)
             res.random_at_5.extend(scratch.f5)
