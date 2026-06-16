@@ -56,7 +56,8 @@ class MMLBResult:
         }
 
 
-def _ingest_isolated(pdf: Path, work: Path, pipeline: str = "legacy", extractor: str = "standard"):
+def _ingest_isolated(pdf: Path, work: Path, pipeline: str = "legacy", extractor: str = "standard",
+                     embed_model: str | None = None, dim: int | None = None):
     """Ingest one PDF into a store+index rooted at `work`, via explicit paths
     (no global os.environ mutation — paths are injected directly)."""
     from contextiq.ingestion.batch import BatchIngestor  # noqa: PLC0415
@@ -67,7 +68,12 @@ def _ingest_isolated(pdf: Path, work: Path, pipeline: str = "legacy", extractor:
     if pipeline == "simple":
         from contextiq.retrieval.simple import SimpleRetriever  # noqa: PLC0415
         blocks = BatchIngestor(profile=FAST).ingest(pdf).blocks
-        retriever = SimpleRetriever(qdrant_path=work / "qdrant")
+        kw = {}
+        if embed_model:
+            kw["embed_model"] = embed_model
+        if dim:
+            kw["dim"] = dim
+        retriever = SimpleRetriever(qdrant_path=work / "qdrant", **kw)
         retriever.index(blocks)
         pages = [b.page for b in blocks if b.page is not None]
         return retriever, (blocks[0].document_id if blocks else ""), (max(pages) if pages else 0)
@@ -109,8 +115,13 @@ class _DocScratch:
 def evaluate(
     limit_docs: int | None = 3, blocks_per_query: int = 30, pipeline: str = "legacy",
     score_mode: str = "first_page", extractor: str = "standard",
+    embed_model: str | None = None, dim: int | None = None,
+    doc_index: int | None = None,
 ) -> MMLBResult:
-    docs = load_docs(limit_docs=limit_docs)
+    if doc_index is not None:
+        docs = load_docs(limit_docs=doc_index + 1)[doc_index:doc_index + 1]
+    else:
+        docs = load_docs(limit_docs=limit_docs)
     res = MMLBResult()
     cache = Path(tempfile.gettempdir()) / "mmlb_pdfs"
     from contextiq.evals.mmlongbench.dataset import fetch_pdf  # noqa: PLC0415
@@ -121,7 +132,8 @@ def evaluate(
             pdf = fetch_pdf(doc.doc_id, cache)
             with tempfile.TemporaryDirectory(prefix="mmlb_idx_") as tmp:
                 store, ingested_id, page_count = _ingest_isolated(
-                    pdf, Path(tmp), pipeline=pipeline, extractor=extractor
+                    pdf, Path(tmp), pipeline=pipeline, extractor=extractor,
+                    embed_model=embed_model, dim=dim,
                 )
                 scratch = _DocScratch()
                 for q in doc.questions:
@@ -167,6 +179,7 @@ def evaluate(
                         "gold_pages": sorted(q.evidence_pages),
                         "recall@5": r5, "recall@10": r10,
                         "n_blocks": len(hit_blocks),
+                        "page_count": page_count,
                     })
                     p = page_count or 1
                     scratch.r5.append(r5)
