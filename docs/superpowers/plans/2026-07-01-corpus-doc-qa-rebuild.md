@@ -69,7 +69,7 @@ Smallest testable slice. Works on a handful of chunks before corpus retrieval ex
 - [ ] Add answer-accuracy scoring (LLM-as-judge vs gold `answer`; keep evidence-recall). Reuse its PDF download + ingest. Point the eval at `store.hybrid_hits` so it measures the new retrieve vs the legacy path (build-new-alongside-old).
 - [x] **RESULT (2026-07-01, AMD/AmEx/Boeing subset, 21 hardest analytical Q):** `hybrid_hits` + minimax-m3 = **0.476 (10/21)**, correct-when-answered 0.500, 1 abstain — vs naive-RAG **0.19**. **2.5× the baseline, gate PASSED**, with NO reranker / OCR / prefixing. ≥0.55 target within reach.
 - Failure mode = the known one: balance-sheet **tables** (quick ratio, largest liability, gross-margin trend) not retrieved → answers can't compute. Points P5 at table retrieval (reranker + Mistral direct OCR + contextual prefixing).
-- [ ] Head-to-head vs legacy `search_with_trace` on the same 21 Q before deleting legacy (the "delete when new wins" gate). Then full 150.
+- [x] **Head-to-head (same 21 Q): hybrid 0.476 (20 answered, 1 abstain) > legacy 0.381 (17 answered, 4 abstain) > naive 0.19.** New wins → cutover shipped (8226586), live path verified `stages=hybrid`, legacy stack cleared for deletion. Full 150 pending PDF downloads.
 
 ---
 
