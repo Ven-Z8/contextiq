@@ -144,7 +144,9 @@ def main() -> None:
                     f"Gold answer: {r['answer']}\n"
                     f"Model answer: {ans.text}\n\nYES or NO?"
                 ),
-                max_tokens=8,
+                # minimax-m3 is a reasoning model: it spends ~100-200 tokens thinking
+                # before emitting YES/NO. Too small a budget -> empty content -> false 0%.
+                max_tokens=2000,
             )
             if judge_verdict(jr.text):
                 correct += 1
