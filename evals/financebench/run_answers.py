@@ -68,6 +68,8 @@ def main() -> None:
     ap.add_argument("--questions", type=Path, default=DEFAULT_QUESTIONS)
     ap.add_argument("--limit", type=int, default=0, help="max questions (0 = all ingested)")
     ap.add_argument("--k", type=int, default=40, help="hybrid retrieve depth")
+    ap.add_argument("--show", action="store_true", help="print gold vs model answer per question")
+    ap.add_argument("--agentic", action="store_true", help="decompose + merge + rerank retrieve")
     args = ap.parse_args()
 
     _self_check()
@@ -77,6 +79,7 @@ def main() -> None:
     from contextiq.core.config import get_settings
     from contextiq.llm.answerer import GroundedAnswerer
     from contextiq.llm.client import OpenRouterLLMClient
+    from contextiq.retrieval.agentic import agentic_retrieve
     from contextiq.retrieval.store import LocalDocumentStore
     from contextiq.utils.tokens import TokenCounter
 
@@ -105,7 +108,10 @@ def main() -> None:
     correct = answered = abstained = 0
     for i, r in enumerate(cases):
         scoped = store.scoped(name_to_id[r["doc_name"]])
-        hits = scoped.hybrid_hits(r["question"], limit=args.k)
+        if args.agentic:
+            hits = agentic_retrieve(scoped, r["question"], judge)
+        else:
+            hits = scoped.hybrid_hits(r["question"], limit=args.k)
 
         sources: list[ContextSource] = []
         used = 0
@@ -153,7 +159,14 @@ def main() -> None:
                 mark = "✓"
             else:
                 mark = "✗"
-        print(f"[{i + 1}/{len(cases)}] {mark} {r['doc_name']}: {r['question'][:60]}")
+        if args.show:
+            print(f"\n{'━' * 88}")
+            print(f"[{i + 1}/{len(cases)}] {mark}  {r['doc_name']}")
+            print(f"Q:     {r['question']}")
+            print(f"GOLD:  {r['answer'][:400]}")
+            print(f"MODEL: {ans.text.strip()[:700]}")
+        else:
+            print(f"[{i + 1}/{len(cases)}] {mark} {r['doc_name']}: {r['question'][:60]}")
 
     n = len(cases)
     print(f"\nAccuracy:              {correct}/{n} = {correct / n:.3f}   (naive-RAG baseline 0.19)")
