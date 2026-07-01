@@ -1,4 +1,4 @@
-"""Phase 1: OpenRouter/Nemotron answer client + provider selection.
+"""Phase 1: OpenRouter answer client + provider selection.
 
 ponytail: deterministic checks only — mocked HTTP, no live API call.
 """
@@ -26,7 +26,7 @@ def test_openrouter_client_parses_response() -> None:
     }
     client = OpenRouterLLMClient(
         api_key="test",
-        model="nvidia/nemotron-3-ultra-550b-a55b:free",
+        model="minimax/minimax-m3",
         http_client=httpx.Client(transport=_mock_transport(payload)),
     )
     result = client.generate(system_prompt="s", user_prompt="u", max_tokens=100)
@@ -51,4 +51,4 @@ def test_provider_openrouter_with_key_selects_openrouter_client(monkeypatch) -> 
     settings = Settings(llm_provider="openrouter", _env_file=None)
     answerer = GroundedAnswerer(settings=settings)
     assert isinstance(answerer.client, OpenRouterLLMClient)
-    assert answerer.client.model == "nvidia/nemotron-3-ultra-550b-a55b:free"
+    assert answerer.client.model == "minimax/minimax-m3"

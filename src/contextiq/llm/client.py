@@ -150,7 +150,7 @@ class OpenRouterLLMClient(LLMClient):
             mode="openrouter",
             tokens_in=tokens_in,
             tokens_out=tokens_out,
-            # estimate_cost only knows Claude tiers -> None for Nemotron, which is honest (free).
+            # estimate_cost only knows Claude tiers -> None for OpenRouter models.
             cost_usd=estimate_cost(self.model, tokens_in, tokens_out),
         )
 

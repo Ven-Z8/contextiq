@@ -72,7 +72,7 @@ class GroundedAnswerer:
                 api_key=settings.anthropic_api_key.get_secret_value(),
                 model=settings.default_model,
             )
-        # Default: OpenRouter (free Nemotron).
+        # Default: OpenRouter (minimax-m3).
         if settings.openrouter_api_key is None:
             return ExtractiveFallbackClient()
         return OpenRouterLLMClient(

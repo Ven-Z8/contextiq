@@ -24,13 +24,13 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("ANTHROPIC_API_KEY", "CONTEXTIQ_ANTHROPIC_API_KEY"),
     )
-    # Answer provider: "openrouter" (default, free Nemotron) or "anthropic" (Citations-API seam).
+    # Answer provider: "openrouter" (default, minimax-m3) or "anthropic" (Citations-API seam).
     llm_provider: str = "openrouter"
     openrouter_api_key: SecretStr | None = Field(
         default=None,
         validation_alias=AliasChoices("OPENROUTER_API_KEY", "CONTEXTIQ_OPENROUTER_API_KEY"),
     )
-    openrouter_model: str = "nvidia/nemotron-3-ultra-550b-a55b:free"
+    openrouter_model: str = "minimax/minimax-m3"
     # 1_000/2_000 truncated comprehensive multi-source answers mid-section
     # (dropping trailing citations and the Confidence/Gaps interpretation block).
     # Give comprehensive syntheses real headroom; Sonnet supports 8k+ output.
