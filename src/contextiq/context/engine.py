@@ -22,6 +22,9 @@ class ContextEngine:
 
     def build_context(self, question: str, limit: int = 24) -> ContextPacket:
         analysis = self.analyzer.analyze(question)
+        # ponytail: new hybrid retrieve (store.hybrid_hits) is built + e2e-proven alongside
+        # this legacy path. Cut over here + delete the legacy stack once FinanceBench (Phase 3)
+        # shows hybrid_hits wins — same "build-new-alongside-old, delete when it wins" rule.
         hits = self.store.search_with_trace(question, limit=limit)
         sources: list[ContextSource] = []
         used_tokens = 0

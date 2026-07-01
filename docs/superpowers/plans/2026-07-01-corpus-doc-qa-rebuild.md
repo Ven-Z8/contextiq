@@ -52,15 +52,12 @@ Smallest testable slice. Works on a handful of chunks before corpus retrieval ex
 
 ---
 
-## Phase 2 — Parse (OpenRouter) + one clean retrieve
+## Phase 2 — one clean retrieve (SHIPPED, cutover staged)
 
-**Files:** new `ingestion/parse.py` (~35 LOC); new `retrieval/retrieve.py` (~30 LOC); wire into `context/engine.py`; `tests/unit/test_retrieve.py`.
-
-- [ ] `parse_pdf(path) -> str` (markdown): OpenRouter file-parser plugin, engine `mistral-ocr` (env-switch to free `cloudflare-ai` for dev) via httpx; fall back to installed Docling when no OpenRouter key. Cache markdown to `data/processed/parsed/<doc>.md` — parse once.
-- [ ] `retrieve(query, k=40) -> list[hit]`: qdrant hybrid dense+BM25 via existing `vector_index.search_hybrid`. That's it — no rerank in v1.
-- [ ] `ContextEngine.build_context` → call `retrieve()`, feed numbered chunks to the P1 answerer. Bypass `RetrievalPipeline` (delete-listed).
-- [ ] Test: tiny 3-doc corpus, assert the gold chunk lands in top-40. One `test_*.py`.
-- [ ] Commit.
+- [x] **retrieve = `store.hybrid_hits(query, k=40)`** — Qdrant hybrid dense+BM25 via `vector_index.search_hybrid`, no rerank. Tested (`tests/unit/test_hybrid_retrieve.py`).
+- [x] **End-to-end proven**: ingest `sample-contract.md` → `hybrid_hits` (9 sources) → **Nemotron** grounded answer with a real Confidence/Gaps block; empty-context path correctly returns `NOT_IN_DOCUMENT`.
+- [~] **Parse: deferred, not needed for v1.** `loader.load(pdf)` already runs Docling (standard TableFormer — was the best extractor at 0.67, no VLM OOM). Hosted OCR is a P5 lever gated on the eval: OpenRouter `mistral-ocr` markdown extraction is flaky per field reports (annotations live on the Responses API, not chat/completions); if tables are the miss, wire Mistral's **direct** OCR API.
+- [~] **Cutover deferred (build-new-alongside-old).** `build_context` still calls legacy `search_with_trace`; flip it to `hybrid_hits` **and** delete the legacy stack together once Phase 3 shows hybrid wins — avoids migrating ~8 legacy-coupled tests (`test_context_engine`, `test_api`) before the number justifies it. Suite is at baseline (only 9 pre-existing enterprise-stack failures; new work adds zero).
 
 ---
 
@@ -68,7 +65,8 @@ Smallest testable slice. Works on a handful of chunks before corpus retrieval ex
 
 **Files:** port/point the recall harness (main checkout `evals/financebench/`) into this tree; add `evals/financebench/run_answers.py`.
 
-- [ ] Add answer-accuracy scoring (LLM-as-judge vs gold `answer`; keep evidence-recall). Reuse its PDF download + ingest.
+- [ ] **First: retry wrapper on `OpenRouterLLMClient`** (2-3 attempts on transient 429/5xx). Free-tier Nemotron intermittently fails and `_generate_safely` silently returns the extractive fallback — that would silently corrupt a 150-question eval (observed once in the Phase 2 e2e).
+- [ ] Add answer-accuracy scoring (LLM-as-judge vs gold `answer`; keep evidence-recall). Reuse its PDF download + ingest. Point the eval at `store.hybrid_hits` so it measures the new retrieve vs the legacy path (build-new-alongside-old).
 - [ ] Run AMD/AmEx/Boeing subset first, then full 150 (buy $10 OpenRouter credits → 1,000/day to avoid throttle).
 - [ ] Record accuracy + abstain-rate + a manual hallucination spot-check.
 - [ ] **Gate:** beat naive-RAG **19%** decisively. Target **≥55%**. If short → P5 levers.

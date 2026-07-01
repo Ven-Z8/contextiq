@@ -40,14 +40,15 @@ def test_openrouter_client_parses_response() -> None:
 def test_provider_defaults_to_openrouter_and_falls_back_without_key(monkeypatch) -> None:
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    settings = Settings(llm_provider="openrouter")
+    # _env_file=None: ignore the developer's real .env so the test is deterministic.
+    settings = Settings(llm_provider="openrouter", _env_file=None)
     answerer = GroundedAnswerer(settings=settings)
     assert answerer.client.__class__.__name__ == "ExtractiveFallbackClient"
 
 
 def test_provider_openrouter_with_key_selects_openrouter_client(monkeypatch) -> None:
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")  # populated via alias, not init kwarg
-    settings = Settings(llm_provider="openrouter")
+    settings = Settings(llm_provider="openrouter", _env_file=None)
     answerer = GroundedAnswerer(settings=settings)
     assert isinstance(answerer.client, OpenRouterLLMClient)
     assert answerer.client.model == "nvidia/nemotron-3-ultra-550b-a55b:free"
