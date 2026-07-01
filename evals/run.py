@@ -7,7 +7,7 @@ import os
 import subprocess
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from ven_eval.records import JsonFileSink, SqliteSink, normalize
@@ -37,7 +37,7 @@ def main() -> None:
         data,
         project="contextiq",
         run_id=str(uuid.uuid4()),
-        ts=datetime.now(timezone.utc).isoformat(),
+        ts=datetime.now(UTC).isoformat(),
     )
     JsonFileSink(RECORDS).write(recs)
     print(f"Wrote {len(recs)} records -> {RECORDS}")

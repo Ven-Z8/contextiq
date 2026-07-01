@@ -27,8 +27,13 @@ def test_answer_question_emits_run_span(monkeypatch):
         dropped_candidates = 2
 
     class _Ans:
-        text = "a"; model = "claude-sonnet-4-6"; mode = "llm"
-        tokens_in = 10; tokens_out = 5; cost_usd = 0.01; warnings = []
+        text = "a"
+        model = "claude-sonnet-4-6"
+        mode = "llm"
+        tokens_in = 10
+        tokens_out = 5
+        cost_usd = 0.01
+        warnings = []
 
     monkeypatch.setattr(q, "_build_packet", lambda question: _Pkt(), raising=False)
     monkeypatch.setattr(q, "_synthesize", lambda packet: _Ans(), raising=False)

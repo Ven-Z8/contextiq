@@ -151,7 +151,9 @@ def eval_retrieval(
     cases = load_qrels(qrels)
     report = run_retrieval_eval(
         cases,
-        retrieve=lambda question, source_limit: store.search(question, limit=source_limit),
+        retrieve=lambda question, source_limit: [
+            hit.block for hit in store.hybrid_hits(question, limit=source_limit)
+        ],
         limit=limit,
         k=k,
     )

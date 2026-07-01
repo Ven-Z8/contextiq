@@ -10,8 +10,9 @@ from pathlib import Path
 # Anchor the process to the project root so those relative paths resolve.
 os.chdir(Path(__file__).resolve().parents[1])
 
-from contextiq.query import answer_question  # noqa: E402
 from ven_eval import EvalOutput, PromptfooProvider  # noqa: E402
+
+from contextiq.query import answer_question  # noqa: E402
 
 
 class ContextiqProvider(PromptfooProvider):
