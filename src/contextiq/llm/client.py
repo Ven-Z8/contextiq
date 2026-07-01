@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from abc import ABC, abstractmethod
 
 import httpx
@@ -119,6 +120,9 @@ class OpenRouterLLMClient(LLMClient):
         # Injected client in tests; a real one (generous timeout for a slow free tier) otherwise.
         self.http = http_client or httpx.Client(timeout=120.0)
 
+    # Retry only these; other statuses (400/401/404) are our bug, not transient.
+    _TRANSIENT_STATUS = frozenset({429, 500, 502, 503, 504})
+
     def generate(
         self,
         *,
@@ -126,33 +130,44 @@ class OpenRouterLLMClient(LLMClient):
         user_prompt: str,
         max_tokens: int,
     ) -> LLMResult:
-        response = self.http.post(
-            OPENROUTER_URL,
-            headers={"Authorization": f"Bearer {self.api_key}"},
-            json={
-                "model": self.model,
-                "max_tokens": max_tokens,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-            },
-        )
-        response.raise_for_status()
-        data = response.json()
-        text = (data["choices"][0]["message"]["content"] or "").strip()
-        usage = data.get("usage") or {}
-        tokens_in = int(usage.get("prompt_tokens", 0))
-        tokens_out = int(usage.get("completion_tokens", 0))
-        return LLMResult(
-            text=text,
-            model=self.model,
-            mode="openrouter",
-            tokens_in=tokens_in,
-            tokens_out=tokens_out,
-            # estimate_cost only knows Claude tiers -> None for OpenRouter models.
-            cost_usd=estimate_cost(self.model, tokens_in, tokens_out),
-        )
+        payload = {
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+        }
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            try:
+                response = self.http.post(OPENROUTER_URL, headers=headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                text = (data["choices"][0]["message"]["content"] or "").strip()
+                usage = data.get("usage") or {}
+                tokens_in = int(usage.get("prompt_tokens", 0))
+                tokens_out = int(usage.get("completion_tokens", 0))
+                return LLMResult(
+                    text=text,
+                    model=self.model,
+                    mode="openrouter",
+                    tokens_in=tokens_in,
+                    tokens_out=tokens_out,
+                    # estimate_cost only knows Claude tiers -> None for OpenRouter models.
+                    cost_usd=estimate_cost(self.model, tokens_in, tokens_out),
+                )
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code not in self._TRANSIENT_STATUS:
+                    raise
+                last_exc = exc
+            except httpx.TransportError as exc:  # timeouts, connection resets
+                last_exc = exc
+            # ponytail: fixed linear backoff; a couple retries covers free/cheap-tier blips.
+            if attempt < 2:
+                time.sleep(1.5 * (attempt + 1))
+        raise last_exc  # exhausted -> _generate_safely turns this into the extractive fallback
 
 
 class ExtractiveFallbackClient(LLMClient):
