@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from abc import ABC, abstractmethod
 
+import httpx
 from anthropic import Anthropic
 from pydantic import BaseModel, Field
 
@@ -98,6 +99,59 @@ class AnthropicLLMClient(LLMClient):
             tokens_in=usage.input_tokens,
             tokens_out=usage.output_tokens,
             cost_usd=estimate_cost(self.model, usage.input_tokens, usage.output_tokens),
+        )
+
+
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+
+class OpenRouterLLMClient(LLMClient):
+    """OpenRouter-backed client over raw httpx.
+
+    ponytail: raw REST, not the OpenAI SDK (CLAUDE.md hard rule). One HTTP call.
+    """
+
+    def __init__(
+        self, *, api_key: str, model: str, http_client: httpx.Client | None = None
+    ) -> None:
+        self.api_key = api_key
+        self.model = model
+        # Injected client in tests; a real one (generous timeout for a slow free tier) otherwise.
+        self.http = http_client or httpx.Client(timeout=120.0)
+
+    def generate(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int,
+    ) -> LLMResult:
+        response = self.http.post(
+            OPENROUTER_URL,
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            json={
+                "model": self.model,
+                "max_tokens": max_tokens,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+        text = (data["choices"][0]["message"]["content"] or "").strip()
+        usage = data.get("usage") or {}
+        tokens_in = int(usage.get("prompt_tokens", 0))
+        tokens_out = int(usage.get("completion_tokens", 0))
+        return LLMResult(
+            text=text,
+            model=self.model,
+            mode="openrouter",
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            # estimate_cost only knows Claude tiers -> None for Nemotron, which is honest (free).
+            cost_usd=estimate_cost(self.model, tokens_in, tokens_out),
         )
 
 

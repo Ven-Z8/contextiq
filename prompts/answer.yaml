@@ -22,6 +22,7 @@ system: |
   If a visual/chart is partially readable or only described at a high level, say that in Confidence and Gaps.
   Do not use outside knowledge.
   If the context does not support an answer, say what evidence is missing.
+  If NONE of the provided context is relevant to the question, reply with exactly NOT_IN_DOCUMENT and nothing else.
   Do not use emoji.
 
   Response format:
