@@ -219,40 +219,64 @@ class LocalDocumentStore:
         return self.retrieval_pipeline.search_with_trace(query=query, limit=limit)
 
     def hybrid_hits(self, query: str, limit: int = 40) -> list[RetrievalHit]:
-        """One clean retrieve: Qdrant hybrid dense+BM25 with RRF.
+        """The live retrieve: Qdrant hybrid dense+BM25 with RRF.
 
-        ponytail: replaces the multi-stage legacy RetrievalPipeline on the live
-        answer path. The free long-context model absorbs generous top-k, so no
-        reranker in v1 (add one only if the FinanceBench eval says recall is short).
+        Validated on FinanceBench (0.476 vs 0.19 naive-RAG). The long-context model
+        absorbs generous top-k, so no reranker in v1 (add one only if the eval says
+        recall is short). Falls back to a keyword scan only when the vector index is
+        empty/unavailable (offline, cold corpus, tests) — a standalone safety net,
+        not the retired multi-stage pipeline.
         """
         by_id = {block.block_id: block for block in self.load_blocks()}
         index = self._get_vector_index()
-        if index is None:
-            return []
-        try:
-            hits = index.search_hybrid(
-                query=query,
-                limit=limit,
-                document_id=self._scoped_document_id,
-                group_by_section=True,
-            )
-        except Exception as exc:
-            logger.warning("Hybrid search failed", exc_info=exc)
-            return []
         results: list[RetrievalHit] = []
-        for rank, hit in enumerate(hits):
-            block = by_id.get(hit.block_id)
-            if block is not None:
-                results.append(
-                    RetrievalHit(
-                        block=block,
-                        rank=rank,
-                        score=hit.score,
-                        stages=["hybrid"],
-                        reason="hybrid dense+BM25 RRF",
-                    )
+        if index is not None:
+            try:
+                hits = index.search_hybrid(
+                    query=query,
+                    limit=limit,
+                    document_id=self._scoped_document_id,
+                    group_by_section=True,
                 )
-        return results
+                for rank, hit in enumerate(hits):
+                    block = by_id.get(hit.block_id)
+                    if block is not None:
+                        results.append(
+                            RetrievalHit(
+                                block=block,
+                                rank=rank,
+                                score=hit.score,
+                                stages=["hybrid"],
+                                reason="hybrid dense+BM25 RRF",
+                            )
+                        )
+            except Exception as exc:
+                logger.warning("Hybrid search failed", exc_info=exc)
+        if results:
+            return results
+        logger.warning("Vector index empty/unavailable; using lexical fallback")
+        return self._lexical_fallback(query, limit)
+
+    def _lexical_fallback(self, query: str, limit: int) -> list[RetrievalHit]:
+        """Keyword-overlap scan for degraded operation (no/empty vector index)."""
+        terms = {w for w in re.findall(r"[a-z0-9]+", query.lower()) if len(w) > 2}
+        scored: list[tuple[int, DocumentBlock]] = []
+        for block in self.load_blocks():
+            haystack = (block.text + " " + " ".join(block.section_path)).lower()
+            overlap = sum(1 for term in terms if term in haystack)
+            if overlap:
+                scored.append((overlap, block))
+        scored.sort(key=lambda item: item[0], reverse=True)
+        return [
+            RetrievalHit(
+                block=block,
+                rank=i,
+                score=float(score),
+                stages=["lexical"],
+                reason="lexical fallback",
+            )
+            for i, (score, block) in enumerate(scored[:limit])
+        ]
 
     def index_blocks(self, blocks: list[DocumentBlock]) -> int:
         index = self._get_vector_index()

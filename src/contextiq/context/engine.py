@@ -20,12 +20,10 @@ class ContextEngine:
         self.encoder = TokenCounter()
         self.analyzer = QueryAnalyzer()
 
-    def build_context(self, question: str, limit: int = 24) -> ContextPacket:
+    def build_context(self, question: str, limit: int = 40) -> ContextPacket:
         analysis = self.analyzer.analyze(question)
-        # ponytail: new hybrid retrieve (store.hybrid_hits) is built + e2e-proven alongside
-        # this legacy path. Cut over here + delete the legacy stack once FinanceBench (Phase 3)
-        # shows hybrid_hits wins — same "build-new-alongside-old, delete when it wins" rule.
-        hits = self.store.search_with_trace(question, limit=limit)
+        # Live retrieve: Qdrant hybrid dense+BM25 (validated on FinanceBench, 0.476 vs 0.19).
+        hits = self.store.hybrid_hits(question, limit=limit)
         sources: list[ContextSource] = []
         used_tokens = 0
         seen_structured_excerpts: set[str] = set()

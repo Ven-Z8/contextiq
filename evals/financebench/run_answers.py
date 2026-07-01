@@ -68,6 +68,7 @@ def main() -> None:
     ap.add_argument("--questions", type=Path, default=DEFAULT_QUESTIONS)
     ap.add_argument("--limit", type=int, default=0, help="max questions (0 = all ingested)")
     ap.add_argument("--k", type=int, default=40, help="hybrid retrieve depth")
+    ap.add_argument("--legacy", action="store_true", help="use legacy search_with_trace (head-to-head)")
     args = ap.parse_args()
 
     _self_check()
@@ -103,9 +104,12 @@ def main() -> None:
     store.hybrid_hits("warmup", limit=1)  # init the shared vector index before scoped() clones
 
     correct = answered = abstained = 0
+    retrieve = (lambda s, q: s.search_with_trace(q, limit=args.k)) if args.legacy else (
+        lambda s, q: s.hybrid_hits(q, limit=args.k)
+    )
     for i, r in enumerate(cases):
         scoped = store.scoped(name_to_id[r["doc_name"]])
-        hits = scoped.hybrid_hits(r["question"], limit=args.k)
+        hits = retrieve(scoped, r["question"])
 
         sources: list[ContextSource] = []
         used = 0
