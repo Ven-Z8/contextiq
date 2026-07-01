@@ -67,10 +67,9 @@ Smallest testable slice. Works on a handful of chunks before corpus retrieval ex
 
 - [ ] **First: retry wrapper on `OpenRouterLLMClient`** (2-3 attempts on transient 429/5xx). The OpenRouter model can intermittently fail and `_generate_safely` silently returns the extractive fallback — that would silently corrupt a 150-question eval (observed once in the Phase 2 e2e).
 - [ ] Add answer-accuracy scoring (LLM-as-judge vs gold `answer`; keep evidence-recall). Reuse its PDF download + ingest. Point the eval at `store.hybrid_hits` so it measures the new retrieve vs the legacy path (build-new-alongside-old).
-- [ ] Run AMD/AmEx/Boeing subset first, then full 150 (buy $10 OpenRouter credits → 1,000/day to avoid throttle).
-- [ ] Record accuracy + abstain-rate + a manual hallucination spot-check.
-- [ ] **Gate:** beat naive-RAG **19%** decisively. Target **≥55%**. If short → P5 levers.
-- [ ] Commit real numbers into README/plan (no marketing).
+- [x] **RESULT (2026-07-01, AMD/AmEx/Boeing subset, 21 hardest analytical Q):** `hybrid_hits` + minimax-m3 = **0.476 (10/21)**, correct-when-answered 0.500, 1 abstain — vs naive-RAG **0.19**. **2.5× the baseline, gate PASSED**, with NO reranker / OCR / prefixing. ≥0.55 target within reach.
+- Failure mode = the known one: balance-sheet **tables** (quick ratio, largest liability, gross-margin trend) not retrieved → answers can't compute. Points P5 at table retrieval (reranker + Mistral direct OCR + contextual prefixing).
+- [ ] Head-to-head vs legacy `search_with_trace` on the same 21 Q before deleting legacy (the "delete when new wins" gate). Then full 150.
 
 ---
 
