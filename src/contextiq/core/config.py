@@ -17,17 +17,26 @@ class Settings(BaseSettings):
     qdrant_path: Path = Path("data/qdrant")
     qdrant_collection: str = "contextiq_chunks_v2"
     jobs_db_path: Path = Path("data/jobs.db")
+    ingest_page_batch_size: int = 50
+    ingest_fast_page_threshold: int = 50
     default_model: str = "claude-sonnet-4-5"
     anthropic_api_key: SecretStr | None = Field(
         default=None,
         validation_alias=AliasChoices("ANTHROPIC_API_KEY", "CONTEXTIQ_ANTHROPIC_API_KEY"),
     )
-    answer_max_tokens: int = 1_000
-    summary_model: str = "claude-haiku-4-5"
-    enable_vlm_extraction: bool = False
-    enable_tree_build: bool = True
-    enable_node_summaries: bool = False
-    enable_heading_inference: bool = True
+    # Answer provider: "openrouter" (default, minimax-m3) or "anthropic" (Citations-API seam).
+    llm_provider: str = "openrouter"
+    openrouter_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("OPENROUTER_API_KEY", "CONTEXTIQ_OPENROUTER_API_KEY"),
+    )
+    openrouter_model: str = "minimax/minimax-m3"
+    # Agentic retrieve (decompose + rerank). Falls back to plain hybrid without a client.
+    agentic: bool = True
+    # 1_000/2_000 truncated comprehensive multi-source answers mid-section
+    # (dropping trailing citations and the Confidence/Gaps interpretation block).
+    # Give comprehensive syntheses real headroom; Sonnet supports 8k+ output.
+    answer_max_tokens: int = 4_000
 
 
 def get_settings() -> Settings:

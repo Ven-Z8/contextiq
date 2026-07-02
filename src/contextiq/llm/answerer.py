@@ -8,7 +8,13 @@ from pydantic import BaseModel
 
 from contextiq.context.models import ContextPacket
 from contextiq.core.config import Settings, get_settings
-from contextiq.llm.client import AnthropicLLMClient, ExtractiveFallbackClient, LLMClient, LLMResult
+from contextiq.llm.client import (
+    AnthropicLLMClient,
+    ExtractiveFallbackClient,
+    LLMClient,
+    LLMResult,
+    OpenRouterLLMClient,
+)
 from contextiq.llm.prompts import load_answer_prompt
 
 
@@ -59,11 +65,19 @@ class GroundedAnswerer:
         )
 
     def _default_client(self, settings: Settings) -> LLMClient:
-        if settings.anthropic_api_key is None:
+        if settings.llm_provider == "anthropic":
+            if settings.anthropic_api_key is None:
+                return ExtractiveFallbackClient()
+            return AnthropicLLMClient(
+                api_key=settings.anthropic_api_key.get_secret_value(),
+                model=settings.default_model,
+            )
+        # Default: OpenRouter (minimax-m3).
+        if settings.openrouter_api_key is None:
             return ExtractiveFallbackClient()
-        return AnthropicLLMClient(
-            api_key=settings.anthropic_api_key.get_secret_value(),
-            model=settings.default_model,
+        return OpenRouterLLMClient(
+            api_key=settings.openrouter_api_key.get_secret_value(),
+            model=settings.openrouter_model,
         )
 
     def _generate_safely(self, *, system_prompt: str, user_prompt: str) -> LLMResult:
