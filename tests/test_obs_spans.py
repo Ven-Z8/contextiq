@@ -5,6 +5,10 @@ def test_init_obs_is_callable():
 
 
 def test_answer_question_emits_run_span(monkeypatch):
+    import pytest
+
+    pytest.importorskip("ven_obs")  # real spans need the local ven_obs package (skipped in CI)
+
     # Wire an in-memory exporter as the global provider
     from opentelemetry import trace
     from opentelemetry.sdk.trace import TracerProvider

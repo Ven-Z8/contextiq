@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from ven_obs import api
-
 from contextiq.context.engine import ContextEngine
 from contextiq.context.models import ContextPacket
 from contextiq.core.config import get_settings
 from contextiq.llm.answerer import GroundedAnswer, GroundedAnswerer
 from contextiq.llm.client import OpenRouterLLMClient
+from contextiq.obs import api
 from contextiq.retrieval.store import LocalDocumentStore
 
 
