@@ -18,11 +18,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 HERE = Path(__file__).parent
 DEFAULT_QUESTIONS = HERE / "questions.jsonl"
-DOCUMENTS_DIR = Path("data/processed/documents")
+# Respect CONTEXTIQ_DATA_DIR so a run can point at an isolated corpus.
+DOCUMENTS_DIR = Path(os.getenv("CONTEXTIQ_DATA_DIR", "data")) / "processed" / "documents"
 TOKEN_BUDGET = 6000
 
 JUDGE_SYSTEM = (
@@ -70,6 +72,7 @@ def main() -> None:
     ap.add_argument("--k", type=int, default=40, help="hybrid retrieve depth")
     ap.add_argument("--show", action="store_true", help="print gold vs model answer per question")
     ap.add_argument("--agentic", action="store_true", help="decompose + merge + rerank retrieve")
+    ap.add_argument("--corpus", action="store_true", help="unscoped: agentic routes to the filing")
     args = ap.parse_args()
 
     _self_check()
@@ -107,11 +110,15 @@ def main() -> None:
 
     correct = answered = abstained = 0
     for i, r in enumerate(cases):
-        scoped = store.scoped(name_to_id[r["doc_name"]])
-        if args.agentic:
-            hits = agentic_retrieve(scoped, r["question"], judge)
+        if args.corpus:
+            # Unscoped: agentic routes to the target filing itself (live corpus setting).
+            hits = agentic_retrieve(store, r["question"], judge)
         else:
-            hits = scoped.hybrid_hits(r["question"], limit=args.k)
+            scoped = store.scoped(name_to_id[r["doc_name"]])
+            if args.agentic:
+                hits = agentic_retrieve(scoped, r["question"], judge)
+            else:
+                hits = scoped.hybrid_hits(r["question"], limit=args.k)
 
         sources: list[ContextSource] = []
         used = 0

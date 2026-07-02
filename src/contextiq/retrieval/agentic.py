@@ -14,12 +14,19 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from contextiq.llm.client import LLMClient
 from contextiq.retrieval.models import RetrievalHit
 from contextiq.retrieval.store import LocalDocumentStore
 
 logger = logging.getLogger(__name__)
+
+ROUTER_SYSTEM = (
+    "You pick which filing a question is about. Given the question and a numbered list of "
+    "filing identifiers (e.g. AMD_2022_10K-...), reply with ONLY the number of the single "
+    "filing the question targets, or -1 if it is unclear. Output just the number."
+)
 
 DECOMPOSE_SYSTEM = (
     "You turn a financial question about a 10-K into focused search queries. "
@@ -84,6 +91,36 @@ def _rerank(
     return ranked[:k]
 
 
+def _parse_index(text: str, n: int) -> int:
+    """Last integer in the model's reply, validated as a 0..n-1 index (else -1)."""
+    ints = re.findall(r"-?\d+", text)
+    for token in reversed(ints):
+        value = int(token)
+        if -1 <= value < n:
+            return value
+    return -1
+
+
+def route_document(store: LocalDocumentStore, question: str, client: LLMClient) -> str | None:
+    """Pick the ingested filing the question targets, so retrieval can scope to it.
+
+    Corpus disambiguation: "current assets / current liabilities" matches every
+    company's balance sheet, so without routing a cross-company corpus returns a
+    mix. Returns a document_id, or None when there is nothing to route to.
+    """
+    docs = sorted(store._load_manifest())
+    if len(docs) <= 1:
+        return docs[0] if docs else None
+    listing = "\n".join(f"[{i}] {doc}" for i, doc in enumerate(docs))
+    result = client.generate(
+        system_prompt=ROUTER_SYSTEM,
+        user_prompt=f"Question: {question}\n\nFilings:\n{listing}",
+        max_tokens=500,
+    )
+    idx = _parse_index(result.text, len(docs))
+    return docs[idx] if idx >= 0 else None
+
+
 def agentic_retrieve(
     store: LocalDocumentStore,
     question: str,
@@ -91,7 +128,12 @@ def agentic_retrieve(
     k: int = 15,
     per_query: int = 12,
 ) -> list[RetrievalHit]:
-    """Decompose -> hybrid_hits per sub-query -> merge/dedup -> table-aware rerank."""
+    """Route to the target filing (if unscoped) -> decompose -> retrieve/merge -> rerank."""
+    if store._scoped_document_id is None:
+        target = route_document(store, question, client)
+        if target is not None:
+            store = store.scoped(target)
+
     subqueries = [question, *decompose(client, question)]
 
     pool: dict[str, RetrievalHit] = {}

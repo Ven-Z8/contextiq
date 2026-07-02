@@ -31,6 +31,8 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("OPENROUTER_API_KEY", "CONTEXTIQ_OPENROUTER_API_KEY"),
     )
     openrouter_model: str = "minimax/minimax-m3"
+    # Agentic retrieve (decompose + rerank). Falls back to plain hybrid without a client.
+    agentic: bool = True
     # 1_000/2_000 truncated comprehensive multi-source answers mid-section
     # (dropping trailing citations and the Confidence/Gaps interpretation block).
     # Give comprehensive syntheses real headroom; Sonnet supports 8k+ output.

@@ -6,13 +6,26 @@ from ven_obs import api
 
 from contextiq.context.engine import ContextEngine
 from contextiq.context.models import ContextPacket
+from contextiq.core.config import get_settings
 from contextiq.llm.answerer import GroundedAnswer, GroundedAnswerer
+from contextiq.llm.client import OpenRouterLLMClient
 from contextiq.retrieval.store import LocalDocumentStore
 
 
 def _build_packet(question: str) -> ContextPacket:
+    settings = get_settings()
     store = LocalDocumentStore()
-    return ContextEngine(store=store).build_context(question)
+    client = None
+    if (
+        settings.agentic
+        and settings.llm_provider == "openrouter"
+        and settings.openrouter_api_key is not None
+    ):
+        client = OpenRouterLLMClient(
+            api_key=settings.openrouter_api_key.get_secret_value(),
+            model=settings.openrouter_model,
+        )
+    return ContextEngine(store=store, agentic_client=client).build_context(question)
 
 
 def _synthesize(packet: ContextPacket) -> GroundedAnswer:
