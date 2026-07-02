@@ -34,3 +34,12 @@ evals/_*.yaml
 .claude/
 .vscode/
 
+
+# Process/planning docs — local only (see public-repo policy)
+docs/superpowers/
+PORTFOLIO.md
+AUDIT-*.md
+docs/cursor/
+docs/harness/
+**/docs/superpowers/
+data/jobs.db

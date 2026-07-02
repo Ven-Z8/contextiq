@@ -6,8 +6,10 @@ import pytest
 from openpyxl import Workbook
 from PIL import Image
 
+from contextiq.ingestion.extractors.stub import StubExtractor
 from contextiq.ingestion.loader import DocumentLoader
-from contextiq.ingestion.models import BlockType
+from contextiq.ingestion.models import BlockType, DocumentBlock
+from contextiq.ingestion.tree_store import TreeStore
 
 
 def test_loader_extracts_page_from_docling_provenance() -> None:
@@ -346,3 +348,23 @@ def test_loader_chunks_large_xlsx_sheets(tmp_path) -> None:
     assert blocks[0].metadata["chunk_strategy"] == "table_row_window"
     assert blocks[0].metadata["row_start"] == 1
     assert blocks[0].metadata["parent_block_id"].endswith(":0")
+
+
+def test_loader_build_tree_persists_a_document_tree(tmp_path) -> None:
+    pdf = tmp_path / "d.pdf"
+    pdf.write_bytes(b"%PDF-1.4 fake")
+    blocks = [
+        DocumentBlock(document_id="d", block_id="d:0", source_path=str(pdf), page=1,
+                      block_type=BlockType.HEADING, text="Risk Factors",
+                      metadata={"reading_order": 0, "heading_level": 1}),
+        DocumentBlock(document_id="d", block_id="d:1", source_path=str(pdf), page=1,
+                      block_type=BlockType.TEXT, text="Risks.",
+                      metadata={"reading_order": 1}),
+    ]
+    store = TreeStore(root=tmp_path / "trees")
+    loader = DocumentLoader(extractor=StubExtractor(blocks))
+
+    tree = loader.build_tree(pdf, store=store)
+
+    assert tree.nodes[tree.root_id].child_node_ids  # has a section
+    assert store.load(tree.document_id) is not None
