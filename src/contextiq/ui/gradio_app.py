@@ -490,4 +490,8 @@ def build_app() -> Any:
 def main() -> None:
     """Run the Gradio UI."""
 
+    from contextiq.obs import init_obs
+
+    init_obs()  # wires ven_obs -> Langfuse + ven_master.db (rollup-only if no LF keys)
+
     build_app().launch(server_name="127.0.0.1", server_port=7860, css=APP_CSS)
