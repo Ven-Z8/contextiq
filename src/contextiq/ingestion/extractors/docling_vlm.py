@@ -1,4 +1,4 @@
-"""Docling VLM pipeline extractor (granite-docling-258M, MLX on Apple Silicon)."""
+"""Docling VLM pipeline extractor (granite-docling-258M, MLX on macOS ARM)."""
 
 from __future__ import annotations
 

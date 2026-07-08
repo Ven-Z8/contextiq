@@ -1,167 +1,68 @@
 # ContextIQ
 
-ContextIQ is an enterprise RAG system for large, complex documents — 10-Ks, annual reports, legal filings, technical specs. It ingests, chunks adaptively by content type, retrieves with a 3-stage neural pipeline (SPLADE + RRF + ColBERT), and returns grounded answers with row-level citations.
+Grounded question-answering over financial filings — 10-Ks, 10-Qs, annual reports. ContextIQ ingests PDFs, routes a question to the right filing, decomposes it into the underlying line items, retrieves with hybrid search, and answers with an LLM that **cites every claim** and **refuses to answer when the evidence isn't there**.
 
-## Demo
+## Why it exists
 
-> _Screenshots and walkthrough video: TBD — to be added before public release._
+QA over long financial documents is deceptively hard: the answer to "what's the quick ratio?" lives in a balance-sheet table whose vocabulary ("current assets", "current liabilities") never matches the question. Naive RAG scores ~19% on FinanceBench. ContextIQ is a deliberately lean, *simple-agentic* pipeline that does markedly better while staying honest about what it doesn't know.
 
-```bash
-contextiq ingest data/raw/apple-2025-10k.pdf
-contextiq ask "What were Apple's total net sales, broken down by Products vs Services?"
-# adaptive chunks | SPLADE + ColBERT retrieval | grounded answer with page citations
-```
+## Results
 
-## Stack
+Measured on **FinanceBench** (Patronus AI — human-verified questions over public filings). Answer accuracy is scored by an LLM judge against the gold answers, over **52 questions across 12 companies and 8 sectors** (tech, finance, aerospace, consumer, industrial, energy, retail, healthcare).
 
-Python · FastAPI · Qdrant (vector index) · BGE-small-en (dense) · SPLADE (neural sparse) · ColBERT (late interaction reranker) · Anthropic Claude (answer synthesis) · pytest · Typer (CLI) · YAML specs for agents/MCP/evals.
-
-## Results Snapshot
-
-**Enterprise pipeline** (SPLADE + RRF + ColBERT reranking) vs lexical baseline on 11 benchmark queries across Apple and NVIDIA annual reports:
-
-| Metric | Lexical baseline | Enterprise RAG |
+| Setting | ContextIQ | FinanceBench published |
 | --- | ---: | ---: |
-| Retrieval Recall@10 | 0.556 | 0.736 |
-| Retrieval MRR | 0.667 | 0.735 |
-| Keyword overlap score (11 queries) | 0.291 avg | 0.312 avg |
-| ColBERT rerank score (financial) | — | 17–24 range |
-| Answer confidence (6 E2E questions) | — | High on 5/6 |
+| **Multi-document corpus** (router picks the filing) | **0.71** | shared vector store: **0.19** · single store: 0.50 |
+| **Per-document** (chat with one filing) | **~0.79** (0.71–0.86, hardest subset) | long-context: **0.79** · oracle: 0.85 |
+| Plain hybrid retrieve (no agentic), per-document | 0.48 | — |
 
-Enterprise pipeline wins on semantic and analytical queries; lexical baseline holds on exact-number lookups where query tokens appear verbatim in table cells. ColBERT scores in the 20+ range consistently surface the right blocks for NVIDIA earnings and Apple litigation questions.
-
-See [docs/benchmarks.md](docs/benchmarks.md) for full eval methodology.
-
-## Quick Install
+On FinanceBench's *hardest analytical* questions, the corpus setting beats the published shared-store baseline **3.7×** (and tops single-vector-store), while answering nearly everything instead of refusing 68% of the time. The per-document number matches published long-context. Numbers wobble ±1 question on LLM nondeterminism — reported as ranges, not points. Reproduce:
 
 ```bash
-uv sync --extra dev
-uv run contextiq --help
-uv run pytest
+uv run contextiq ingest evals/financebench/pdfs/AMD_2022_10K.pdf
+PYTHONPATH=src python evals/financebench/run_answers.py --limit 0 --corpus   # routed corpus
 ```
 
-## Run The App
-
-Run the backend:
-
-```bash
-uv run contextiq-api
-```
-
-Then open `http://127.0.0.1:8000`.
-
-The dashboard supports two modes:
-
-- `Answer with Evidence`: retrieval plus grounded answer synthesis.
-- `Build Context Only`: retrieval trace without an LLM call.
-
-Set `ANTHROPIC_API_KEY` for Anthropic answer synthesis. Without a key, ContextIQ returns a safe extractive fallback so the demo still runs locally.
-
-## Architecture
+## How it works
 
 ```mermaid
 flowchart LR
-  D[Document] --> AC[Adaptive Chunker\n7 content profiles]
-  AC --> IDX[(Qdrant\n3-vector index)]
-  IDX --> QIR[Query Intent Router\nfinancial / analytical / risk]
-  QIR --> SP[SPLADE sparse]
-  QIR --> DE[BGE dense]
-  SP --> RRF[RRF Fusion]
-  DE --> RRF
-  RRF --> CB[ColBERT Reranker]
-  CB --> CP[Context Packet\ntoken-budgeted]
-  CP --> AS[Claude Answer Synthesis]
-  AS --> O[Grounded Answer\nrow-level citations]
+  Q[Question] -->|route: which filing?| S[Scope to filing]
+  S -->|decompose: quick ratio → current assets, current liabilities| SUB[Sub-queries]
+  SUB -->|Qdrant hybrid: BGE dense + BM25, RRF| M[Merge + dedup]
+  M -->|table-aware rerank| TOP[Top passages]
+  TOP -->|minimax-m3| A[Grounded answer]
+  A --> Cite[Every claim cited: block_id, page]
+  A --> Gate["NOT_IN_DOCUMENT when evidence is missing"]
 ```
 
-**Adaptive Chunker** classifies each block into one of 7 content profiles — `financial_table`, `risk_section`, `narrative_para`, `numerical_fact`, `list_items`, `heading`, `generic` — and applies the optimal chunking strategy per profile. The **Query Intent Router** maps query type to retrieval config: financial queries go sparse-heavy (SPLADE dominant), analytical queries go dense-heavy, risk queries get balanced retrieval biased toward risk section blocks.
+- **Route** — one LLM call picks the target filing from the corpus (so "current assets" doesn't pull every company's balance sheet). Skipped when only one document is ingested.
+- **Decompose** — rewrites a concept question into its underlying line items, so hybrid search can find the balance-sheet table that plain retrieval misses. This single step lifts the hardest questions from 0.48 → ~0.79.
+- **Retrieve + rerank** — hybrid dense (BGE) + BM25 with RRF per sub-query, merged/deduped, then a table-aware LLM rerank keeps the most useful blocks (including tables) in budget.
+- **Answer** — minimax-m3 (via OpenRouter) under a strict grounding prompt: cite each claim, keep evidence separate from interpretation, and emit `NOT_IN_DOCUMENT` rather than guess.
 
-## Highlights
+No multi-agent orchestration — one route + one decompose + one rerank call. Every added component was measured head-to-head before adoption.
 
-- Adaptive chunking with 7 content profiles and 4 chunking strategies (whole, split, deduplicate, hierarchical).
-- 3-stage enterprise retrieval: SPLADE neural sparse + BGE dense → RRF fusion → ColBERT reranking.
-- Query intent routing — financial/analytical/risk queries each get a tuned retrieval config.
-- Token-aware context packet assembly with dropped-candidate tracking and ColBERT score metadata.
-- Grounded answer synthesis with row-level citations, confidence levels, and explicit gap reporting.
-- Extractive fallback when no API key is set — demo runs fully offline.
-- Retrieval eval contracts and qrels for repeatable quality checks.
-
-See [docs/code-flow.md](docs/code-flow.md) for the function-level execution map.
-
-The retrieval, MCP, and eval contracts live in:
-
-- [specs/agents.yaml](specs/agents.yaml)
-- [specs/mcp-tools.yaml](specs/mcp-tools.yaml)
-- [specs/evals.yaml](specs/evals.yaml)
-
-## Demo Commands
+## Quick start
 
 ```bash
+uv sync --extra dev --extra ui
+cp .env.example .env            # set OPENROUTER_API_KEY
 uv run contextiq ingest data/raw/sample-contract.md
-uv run contextiq ask "What are the main regulatory risks? Cite pages."
-curl -X POST http://127.0.0.1:8000/answer \
-  -H 'Content-Type: application/json' \
-  -d '{"question":"What obligations does the contract mention?","limit":6}'
-uv run contextiq inspect-context
+uv run contextiq-ui             # Gradio dashboard  (or contextiq-api for the FastAPI backend)
 ```
 
-## Evaluation
+Without an `OPENROUTER_API_KEY`, ContextIQ returns a safe extractive fallback so the demo still runs offline. Agentic retrieve is on by default (`CONTEXTIQ_AGENTIC`) and falls back to plain hybrid when no model client is available.
 
-```bash
-uv run contextiq eval-retrieval --limit 20 --k 10
-make eval
-```
+## Stack
 
----
+Python · Qdrant (hybrid vector index) · BGE-small dense + BM25 sparse (FastEmbed) · Docling (PDF/table parsing) · minimax-m3 via OpenRouter (routing, decomposition, rerank, synthesis) · FastAPI · Gradio · Typer CLI · pytest.
 
-## Roadmap
+Answer model is env-driven: swap via `CONTEXTIQ_OPENROUTER_MODEL`, or set `CONTEXTIQ_LLM_PROVIDER=anthropic` to use Claude with the Anthropic Citations API.
 
-### ✅ Foundation (shipped)
-- Structural ingestion — PDF, Markdown, spreadsheets
-- Qdrant vector index with fallback in-memory store
-- BM25 lexical retrieval + dense semantic retrieval
-- ContextPacket assembly with token budgeting
-- Grounded answer synthesis with extractive fallback
-- CLI, FastAPI backend, eval harness
+## Honest limitations & next steps
 
-### ✅ Enterprise RAG Sprint (shipped)
-- Adaptive chunker with 7 content profiles and per-profile chunking strategies
-- 3-vector Qdrant collection: BGE-small-en (dense) + SPLADE (neural sparse) + ColBERT (late interaction)
-- INT8 scalar quantization for 4× memory reduction
-- RRF fusion of dense + sparse candidates before ColBERT reranking
-- Query Intent Router: financial → sparse-heavy, analytical → dense-heavy, risk → prose-biased
-- Full corpus indexing: 7,720 blocks across Apple, NVIDIA, Microsoft, NASA filings
-- Row-level citations with block ID, page number, and ColBERT confidence score
-- E2E validation: 5/6 benchmark questions answered with high confidence
-
-### 🚧 Agentic RAG — Coming Soon
-
-> One-shot retrieval has a ceiling. Agentic RAG breaks through it.
-
-The next phase replaces single-shot retrieval with an agent loop that thinks, retrieves iteratively, and builds a complete evidence picture before answering.
-
-**Query Planning Agent** — decomposes a complex question into 2–4 targeted sub-queries, each with its own search strategy (sparse-heavy for exact figures, dense-heavy for analytical reasoning).
-
-**Iterative Retrieval Loop** — runs each sub-query, checks evidence coverage, and decides whether to re-query with a refined strategy or proceed to synthesis.
-
-**Multi-hop Reasoning** — connects evidence across documents and sections (e.g., cross-referencing Apple's tariff risk disclosures with their supply chain notes).
-
-**Evidence Ranker** — scores and deduplicates evidence blocks across sub-queries before building the final context packet.
-
-**Confidence-Gated Synthesis** — the synthesis agent rates its own confidence per claim; low-confidence claims trigger a targeted follow-up retrieval pass before the final answer is returned.
-
-```
-User Question
-    ↓
-[Query Planner]    →  sub-query 1, sub-query 2, sub-query 3
-    ↓
-[Retrieval Loop]   →  SPLADE + ColBERT per sub-query
-    ↓
-[Evidence Merger]  →  dedup, rank, token-budget
-    ↓
-[Synthesis Agent]  →  grounded answer + confidence gate
-    ↓
-Grounded Answer with multi-source citations
-```
-
-This directly addresses the class of questions where the answer is scattered across sections — tariff disclosures buried in a 100-page risk section, litigation details split across footnotes, multi-year trend analysis that requires joining financial tables across pages.
+- Validated on 12 companies / 52 questions — strong and diverse, but not the full FinanceBench 150. A broad claim needs the remaining filings ingested.
+- Routing recovers most but not all of the per-document quality (corpus 0.71 vs scoped ~0.79); routing errors and cross-company ambiguity are the gap.
+- ±1 question of LLM variance — treat every number as a range.
+- Agentic adds ~3 model calls per question (route + decompose + rerank) over plain retrieve.

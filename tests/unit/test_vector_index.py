@@ -16,7 +16,7 @@ def test_vector_index_accepts_citation_block_ids(tmp_path: Path) -> None:
     )
 
     indexed = index.index_blocks([block])
-    results = index.search("regulatory antitrust risk", limit=1)
+    results = [h.block_id for h in index.search_hybrid("regulatory antitrust risk", limit=1)]
 
     assert indexed == 1
     assert results == [block.block_id]
@@ -40,8 +40,10 @@ def test_vector_index_replaces_existing_document_vectors(tmp_path: Path) -> None
     index.index_blocks([old_block])
     index.index_blocks([new_block])
 
-    assert "doc:old" not in index.search("risk factors", limit=5)
-    assert index.search("net sales performance", limit=1) == ["doc:new"]
+    old_hits = [h.block_id for h in index.search_hybrid("risk factors", limit=5)]
+    new_hits = [h.block_id for h in index.search_hybrid("net sales performance", limit=1)]
+    assert "doc:old" not in old_hits
+    assert new_hits == ["doc:new"]
 
 
 def test_vector_index_surfaces_unexpected_delete_failures(tmp_path: Path) -> None:
@@ -55,6 +57,6 @@ def test_vector_index_surfaces_unexpected_delete_failures(tmp_path: Path) -> Non
     try:
         index._delete_existing_documents({"doc"})
     except RuntimeError as exc:
-        assert "Failed to delete existing vectors" in str(exc)
+        assert "Failed to delete vectors for document" in str(exc)
     else:
         raise AssertionError("Expected unexpected vector delete failure to raise")

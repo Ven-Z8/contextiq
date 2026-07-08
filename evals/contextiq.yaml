@@ -1,0 +1,49 @@
+- vars:
+    question: "Inspect the context packet for a multi-section query."
+  metadata:
+    case_id: context_budget_report
+  assert:
+    # Inline python: promptfoo wraps these as the body of main(output, context).
+    # (file:// asserts in an external tests file get inlined and lose get_assert.)
+    - type: python
+      value: |
+        md = context.get('metadata') if isinstance(context.get('metadata'), dict) else ((context.get('providerResponse') or {}).get('metadata') or {})
+        return (md.get('budget') or {}).get('used_tokens', 0) > 0
+    - type: python
+      value: |
+        md = context.get('metadata') if isinstance(context.get('metadata'), dict) else ((context.get('providerResponse') or {}).get('metadata') or {})
+        return len((md.get('budget') or {}).get('selected_source_ids') or []) > 0
+
+- vars:
+    question: "What are the termination and intellectual property obligations?"
+  metadata:
+    case_id: contract_clause_extraction
+  assert:
+    - type: llm-rubric
+      value: "States a termination notice period or cure period."
+    - type: llm-rubric
+      value: "States ownership or assignment of intellectual property."
+    - type: python
+      value: |
+        md = context.get('metadata') if isinstance(context.get('metadata'), dict) else ((context.get('providerResponse') or {}).get('metadata') or {})
+        return int(md.get('citations_count', 0)) >= 2
+
+- vars:
+    question: "What penalty does this agreement impose for late payment?"
+  metadata:
+    case_id: unsupported_claim_refusal
+  assert:
+    - type: llm-rubric
+      value: "Says the evidence is missing or not present, and does NOT invent a penalty."
+
+- vars:
+    question: "What are the top regulatory risks and what evidence supports each?"
+  metadata:
+    case_id: risk_factor_synthesis
+  assert:
+    - type: llm-rubric
+      value: "Groups risks by theme."
+    - type: llm-rubric
+      value: "Every claim in the Evidence section includes a document citation. The Direct Answer is high-level synthesis and is not required to carry per-claim citations."
+    - type: llm-rubric
+      value: "Separates document evidence from model interpretation."
