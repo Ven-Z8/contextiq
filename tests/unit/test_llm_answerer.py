@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from contextiq.context.models import ContextPacket, ContextSource
 from contextiq.core.config import Settings
 from contextiq.ingestion.models import DocumentBlock
 from contextiq.llm.answerer import GroundedAnswerer
-from contextiq.llm.client import LLMClient, LLMResult
+from contextiq.llm.client import AnthropicLLMClient, LLMClient, LLMResult
 from contextiq.llm.prompts import load_answer_prompt
 
 
@@ -100,4 +102,76 @@ def test_grounded_answerer_warns_when_answer_infers_missing_page() -> None:
 
     assert answer.warnings == [
         "Answer mentions a numeric page, but retrieved sources only report page unknown."
+    ]
+
+
+def test_grounded_answerer_warns_for_fabricated_citation() -> None:
+    client = FakeLLMClient(
+        "Unsupported claim [doc:missing, page 7] and wrong page [doc:1, page 8]."
+    )
+    packet = ContextPacket(
+        question="What does the filing say?",
+        sources=[
+            ContextSource(
+                block=DocumentBlock(
+                    document_id="doc",
+                    block_id="doc:1",
+                    source_path="sample.pdf",
+                    page=3,
+                    text="Supported evidence.",
+                ),
+                estimated_tokens=4,
+                reason="retrieved this block",
+            )
+        ],
+        token_budget=1000,
+        used_tokens=4,
+        dropped_candidates=0,
+    )
+
+    answer = GroundedAnswerer(client=client, settings=Settings()).answer(packet)
+
+    assert answer.warnings == [
+        "Citation references unknown block 'doc:missing'.",
+        "Citation for block 'doc:1' reports page 8, but the retrieved source is page 3.",
+    ]
+
+
+def test_context_packet_renders_page_zero() -> None:
+    packet = ContextPacket(
+        question="What does the source say?",
+        sources=[
+            ContextSource(
+                block=DocumentBlock(
+                    document_id="doc",
+                    block_id="doc:0",
+                    source_path="sample.pdf",
+                    page=0,
+                    text="First page.",
+                ),
+                estimated_tokens=3,
+                reason="retrieved this block",
+            )
+        ],
+        token_budget=1000,
+        used_tokens=3,
+        dropped_candidates=0,
+    )
+
+    assert "### doc:0 (page 0)" in packet.to_markdown()
+
+
+def test_anthropic_client_warns_when_max_tokens_truncates(monkeypatch) -> None:
+    client = AnthropicLLMClient(api_key="test", model="claude-test")
+    message = SimpleNamespace(
+        content=[SimpleNamespace(type="text", text="Incomplete answer")],
+        usage=SimpleNamespace(input_tokens=10, output_tokens=5),
+        stop_reason="max_tokens",
+    )
+    monkeypatch.setattr(client.client.messages, "create", lambda **kwargs: message)
+
+    result = client.generate(system_prompt="s", user_prompt="u", max_tokens=5)
+
+    assert result.warnings == [
+        "Answer may be truncated because the model reached the maximum token limit."
     ]
