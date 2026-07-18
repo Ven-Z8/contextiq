@@ -329,8 +329,20 @@ class DoclingStandardExtractor:
         provenance = getattr(item, "prov", None) or []
         if not provenance:
             return None
+        # Try first provenance item
         page_no = getattr(provenance[0], "page_no", None)
-        return int(page_no) if page_no is not None else None
+        if page_no is not None:
+            return int(page_no)
+        # Fallback: try other provenance items
+        for prov in provenance[1:]:
+            page_no = getattr(prov, "page_no", None)
+            if page_no is not None:
+                return int(page_no)
+        # Fallback: try bbox-based page inference if available
+        bbox = getattr(provenance[0], "bbox", None)
+        if bbox is not None and hasattr(bbox, "page_no"):
+            return int(bbox.page_no)
+        return None
 
     def _caption_text(self, item: Any, document: Any | None = None) -> str | None:
         caption = getattr(item, "caption_text", None)

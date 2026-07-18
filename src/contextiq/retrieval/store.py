@@ -8,6 +8,7 @@ import re
 from collections.abc import Callable
 from hashlib import sha1
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter
 
@@ -15,7 +16,10 @@ from contextiq.core.config import get_settings
 from contextiq.ingestion.hierarchy import HierarchyBuilder, ParentChunk
 from contextiq.ingestion.models import DocumentBlock
 from contextiq.retrieval.models import RetrievalHit
-from contextiq.retrieval.vector_index import VectorIndex
+from contextiq.retrieval.vector_index import create_vector_index
+
+if TYPE_CHECKING:
+    from contextiq.retrieval.vector_index import VectorIndex, InMemoryIndex
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +41,9 @@ class LocalDocumentStore:
         self._scoped_document_id: str | None = None
         self._document_cache: dict[str, list[DocumentBlock]] = {}
         self._parent_cache: dict[str, dict[str, ParentChunk]] = {}
-        self._vector_index: VectorIndex | None = None
+        self._vector_index: VectorIndex | InMemoryIndex | None = None
         self.hierarchy = HierarchyBuilder()
-        self.vector_index_factory: Callable[[], VectorIndex] = VectorIndex
+        self.vector_index_factory: Callable[[], VectorIndex | InMemoryIndex] = create_vector_index
 
     def scoped(self, document_id: str | None) -> LocalDocumentStore:
         """Return a store view limited to one document when scoped.
@@ -184,7 +188,7 @@ class LocalDocumentStore:
         digest = sha1(document_id.encode("utf-8")).hexdigest()[:10]
         return self.parents_dir / f"{slug[:80]}-{digest}.json"
 
-    def hybrid_hits(self, query: str, limit: int = 40) -> list[RetrievalHit]:
+    def hybrid_hits(self, query: str, limit: int = 40, group_by_section: bool = True) -> list[RetrievalHit]:
         """The live retrieve: Qdrant hybrid dense+BM25 with RRF.
 
         Validated on FinanceBench (0.476 vs 0.19 naive-RAG). The long-context model
@@ -201,20 +205,51 @@ class LocalDocumentStore:
                     query=query,
                     limit=limit,
                     document_id=self._scoped_document_id,
-                    group_by_section=True,
+                    group_by_section=group_by_section,
                 )
-                for rank, hit in enumerate(hits):
-                    block = by_id.get(hit.block_id)
-                    if block is not None:
-                        results.append(
-                            RetrievalHit(
-                                block=block,
-                                rank=rank,
-                                score=hit.score,
-                                stages=["hybrid"],
-                                reason="hybrid dense+BM25 RRF",
+                # Only rerank if we got VectorSearchHit objects (not lexical fallback)
+                # Check hits for block_id attr (VectorSearchHit) vs block.block_id (RetrievalHit)
+                if hits and hasattr(hits[0], 'block_id'):
+                    original_hits = hits
+                    hits = index.rerank(query, hits, top_k=limit)
+                    for rank, hit in enumerate(hits):
+                        block = by_id.get(hit.block_id)
+                        if block is not None:
+                            # Use original hybrid score for ordering, rerank logit only for logging
+                            orig_hit = next(
+                                (h for h in original_hits if h.block_id == hit.block_id),
+                                None,
                             )
-                        )
+                            final_score = orig_hit.score if orig_hit else hit.score
+                            is_nvidia_rerank = (
+                                len(hits) != limit or hasattr(index, '_nvidia_rerank_client')
+                            )
+                            reason = "hybrid dense+BM25 RRF"
+                            if is_nvidia_rerank:
+                                reason += " + NVIDIA rerank"
+                            results.append(
+                                RetrievalHit(
+                                    block=block,
+                                    rank=rank,
+                                    score=final_score,
+                                    stages=["hybrid"],
+                                    reason=reason,
+                                )
+                            )
+                else:
+                    # Lexical fallback hits - no rerank
+                    for rank, hit in enumerate(hits):
+                        block = by_id.get(hit.block_id)
+                        if block is not None:
+                            results.append(
+                                RetrievalHit(
+                                    block=block,
+                                    rank=rank,
+                                    score=hit.score,
+                                    stages=["lexical"],
+                                    reason="lexical fallback",
+                                )
+                            )
             except Exception as exc:
                 logger.warning("Hybrid search failed", exc_info=exc)
         if results:
@@ -249,7 +284,7 @@ class LocalDocumentStore:
             return 0
         return index.index_blocks(blocks)
 
-    def _get_vector_index(self) -> VectorIndex | None:
+    def _get_vector_index(self) -> VectorIndex | InMemoryIndex | None:
         if self._vector_index is not None:
             return self._vector_index
         try:

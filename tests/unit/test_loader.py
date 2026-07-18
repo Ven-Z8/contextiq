@@ -6,6 +6,7 @@ import pytest
 from openpyxl import Workbook
 from PIL import Image
 
+from contextiq.ingestion.extractors.docling_standard import DoclingStandardExtractor
 from contextiq.ingestion.extractors.stub import StubExtractor
 from contextiq.ingestion.loader import DocumentLoader
 from contextiq.ingestion.models import BlockType, DocumentBlock
@@ -15,16 +16,14 @@ from contextiq.ingestion.tree_store import TreeStore
 def test_loader_extracts_page_from_docling_provenance() -> None:
     item = SimpleNamespace(prov=[SimpleNamespace(page_no=12)])
 
-    assert DocumentLoader()._page_from_item(item) == 12
+    assert DoclingStandardExtractor()._page_from_item(item) == 12
 
 
 def test_loader_maps_docling_labels_to_block_types() -> None:
-    loader = DocumentLoader()
-
-    assert loader._block_type_from_label("section_header") == BlockType.HEADING
-    assert loader._block_type_from_label("table") == BlockType.TABLE
-    assert loader._block_type_from_label("picture") == BlockType.FIGURE
-    assert loader._block_type_from_label("text") == BlockType.TEXT
+    assert DoclingStandardExtractor()._block_type_from_label("section_header") == BlockType.HEADING
+    assert DoclingStandardExtractor()._block_type_from_label("table") == BlockType.TABLE
+    assert DoclingStandardExtractor()._block_type_from_label("picture") == BlockType.FIGURE
+    assert DoclingStandardExtractor()._block_type_from_label("text") == BlockType.TEXT
 
 
 def test_loader_records_docling_fallback_error(tmp_path) -> None:
@@ -35,7 +34,7 @@ def test_loader_records_docling_fallback_error(tmp_path) -> None:
     def fail_docling(_path, *, page_range=None):
         raise RuntimeError("docling unavailable")
 
-    loader._load_with_docling = fail_docling  # type: ignore[method-assign]
+    loader.extractor.extract = fail_docling  # type: ignore[method-assign]
 
     blocks = loader.load(path)
 
@@ -52,7 +51,7 @@ def test_loader_uses_native_markdown_parser_for_markdown_files(tmp_path) -> None
     def fail_docling(_path, *, page_range=None):
         raise AssertionError("markdown should not use docling")
 
-    loader._load_with_docling = fail_docling  # type: ignore[method-assign]
+    loader.extractor.extract = fail_docling  # type: ignore[method-assign]
 
     blocks = loader.load(path)
 
@@ -69,7 +68,7 @@ def test_loader_strict_docling_raises_parser_errors(tmp_path) -> None:
     def fail_docling(_path, *, page_range=None):
         raise RuntimeError("docling unavailable")
 
-    loader._load_with_docling = fail_docling  # type: ignore[method-assign]
+    loader.extractor.extract = fail_docling  # type: ignore[method-assign]
 
     with pytest.raises(RuntimeError, match="docling unavailable"):
         loader.load(path)
@@ -87,7 +86,7 @@ def test_loader_preserves_figure_caption_as_retrievable_text(tmp_path) -> None:
     )
     document = SimpleNamespace(iterate_items=lambda: iter([(item, 1)]))
 
-    block = loader._load_docling_document(document=document, path=path)[0]
+    block = loader.extractor._load_docling_document(document=document, path=path)[0]
 
     assert block.block_type == BlockType.FIGURE
     assert "Revenue by segment chart" in block.text
@@ -107,7 +106,7 @@ def test_loader_calls_docling_figure_caption_method(tmp_path) -> None:
     )
     document = SimpleNamespace(iterate_items=lambda: iter([(item, 1)]))
 
-    block = loader._load_docling_document(document=document, path=path)[0]
+    block = loader.extractor._load_docling_document(document=document, path=path)[0]
 
     assert block.text == "Figure: Architecture overview diagram"
     assert block.metadata["caption"] == "Architecture overview diagram"
@@ -129,7 +128,7 @@ def test_loader_passes_document_to_docling_caption_method(tmp_path) -> None:
     )
     docling_document = SimpleNamespace(iterate_items=lambda: iter([(item, 1)]))
 
-    block = loader._load_docling_document(document=docling_document, path=path)[0]
+    block = loader.extractor._load_docling_document(document=docling_document, path=path)[0]
 
     assert block.text == "Figure: Interoperable cloud architecture"
     assert block.metadata["caption"] == "Interoperable cloud architecture"
@@ -160,7 +159,7 @@ def test_loader_records_docling_figure_bbox_and_saves_image_artifact(tmp_path) -
     )
     document = SimpleNamespace(iterate_items=lambda: iter([(item, 1)]))
 
-    block = loader._load_docling_document(document=document, path=source)[0]
+    block = loader.extractor._load_docling_document(document=document, path=source)[0]
 
     assert block.metadata["bbox_l"] == 1.0
     assert block.metadata["bbox_t"] == 2.0
@@ -192,7 +191,7 @@ def test_loader_records_docling_picture_description_and_indexes_it(tmp_path) -> 
     )
     document = SimpleNamespace(iterate_items=lambda: iter([(item, 1)]))
 
-    block = loader._load_docling_document(document=document, path=source)[0]
+    block = loader.extractor._load_docling_document(document=document, path=source)[0]
 
     assert block.metadata["visual_description"] == (
         "Revenue chart shows services growing faster than products."
@@ -222,7 +221,7 @@ def test_loader_removes_docling_vlm_stop_tokens_from_picture_description(tmp_pat
     )
     document = SimpleNamespace(iterate_items=lambda: iter([(item, 1)]))
 
-    block = loader._load_docling_document(document=document, path=source)[0]
+    block = loader.extractor._load_docling_document(document=document, path=source)[0]
 
     assert block.metadata["visual_description"] == "A flow chart showing data services."
     assert "<end_of" not in block.text
@@ -254,7 +253,7 @@ def test_loader_records_docling_picture_classification_metadata(tmp_path) -> Non
     )
     document = SimpleNamespace(iterate_items=lambda: iter([(item, 1)]))
 
-    block = loader._load_docling_document(document=document, path=source)[0]
+    block = loader.extractor._load_docling_document(document=document, path=source)[0]
 
     assert block.metadata["visual_class"] == "bar_chart"
     assert block.metadata["visual_class_confidence"] == 0.91
@@ -290,7 +289,7 @@ def test_loader_reads_legacy_docling_picture_annotations(tmp_path) -> None:
     )
     document = SimpleNamespace(iterate_items=lambda: iter([(item, 1)]))
 
-    block = loader._load_docling_document(document=document, path=source)[0]
+    block = loader.extractor._load_docling_document(document=document, path=source)[0]
 
     assert block.metadata["visual_description"] == "A diagram showing cloud and data flows."
     assert block.metadata["visual_description_provider"] == "legacy-vlm"
@@ -306,7 +305,7 @@ def test_loader_does_not_plain_text_fallback_binary_pdf(tmp_path) -> None:
     def fail_docling(_path, *, page_range=None):
         raise RuntimeError("docling parser failed")
 
-    loader._load_with_docling = fail_docling  # type: ignore[method-assign]
+    loader.extractor.extract = fail_docling  # type: ignore[method-assign]
 
     with pytest.raises(RuntimeError, match="docling parser failed"):
         loader.load(path)

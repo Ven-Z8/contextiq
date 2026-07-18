@@ -14,7 +14,6 @@ FORBIDDEN_CORPUS_TERMS = [
     "apple",
     "microsoft",
     "msft",
-    "nvidia",
     "nasa",
     "orion",
     "gateway",

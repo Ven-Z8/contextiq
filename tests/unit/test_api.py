@@ -169,5 +169,5 @@ def test_api_answer_uses_fallback_without_api_key(
     assert response.status_code == 200
     payload = response.json()
     assert payload["mode"] == "extractive_fallback"
-    assert "Anthropic API key" in payload["answer"]
+    assert "no LLM API key" in payload["answer"]
     assert payload["context"]["sources"][0]["block_id"] == "doc:1"

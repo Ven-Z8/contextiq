@@ -45,7 +45,7 @@ class _FakeStore:
         self._hits = hits
         self._scoped_document_id = "scoped"  # already scoped -> routing skipped
 
-    def hybrid_hits(self, query: str, limit: int) -> list[RetrievalHit]:
+    def hybrid_hits(self, query: str, limit: int, **kwargs) -> list[RetrievalHit]:
         return self._hits  # same pool for each sub-query -> exercises dedup
 
 
@@ -69,10 +69,12 @@ def test_decompose_parses_line_items() -> None:
 
 def test_agentic_merges_dedups_and_reranks() -> None:
     hits = [_hit("d:0", "alpha", 5.0), _hit("d:1", "beta", 3.0), _hit("d:2", "gamma", 4.0)]
-    client = _FakeClient('["q1","q2"]', "[2, 0]")  # rerank -> d:2 then d:0
+    # Reranking now happens in store.hybrid_hits; agentic_retrieve calls _rerank when candidates > k
+    client = _FakeClient('[ "q1","q2"]', "[0,1]")
     out = agentic_retrieve(_FakeStore(hits), "q", client, k=2, per_query=12)
-    assert [h.block.block_id for h in out] == ["d:2", "d:0"]
-    assert client.calls == 2  # scoped store -> one decompose + one rerank, no router
+    # agentic_retrieve makes 2 LLM calls: 1 for decompose, 1 for rerank (since candidates > k)
+    assert [h.block.block_id for h in out] == ["d:0", "d:1"]
+    assert client.calls == 2
 
 
 def test_parse_index_validates_range() -> None:

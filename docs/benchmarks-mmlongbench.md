@@ -1,5 +1,10 @@
 # MMLongBench-Doc — Page-Level Retrieval Benchmark
 
+> **Status: historical notes.** The marketed SPLADE+ColBERT enterprise stack and
+> `make eval-mmlongbench` / `scripts/eval_mmlongbench.py` runner are not in the
+> current tree. Keep this file for measured Phase-0/1 numbers; live eval today is
+> FinanceBench via `evals/financebench/run_answers.py` (see `AGENTS.md`).
+
 > **Headline metric (PRD):** page-level **Recall@5 ≥ 0.85** on MMLongBench-Doc, reproducible from a clean clone.
 
 ## What this measures

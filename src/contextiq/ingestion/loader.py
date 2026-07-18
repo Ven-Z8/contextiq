@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from contextiq.ingestion.chunking import DocumentChunker
 from contextiq.ingestion.extractors.base import Extractor
@@ -61,7 +61,7 @@ class DocumentLoader:
 
         try:
             return self.chunker.chunk_blocks(
-                self._load_with_docling(path, page_range=page_range)
+                self.extractor.extract(path, page_range=page_range)
             )
         except Exception as exc:
             if self.strict_docling or not self._can_plain_text_fallback(path):
@@ -76,7 +76,7 @@ class DocumentLoader:
         if path.suffix.lower() != ".pdf":
             raise ValueError("load_pdf_range only supports PDF files")
         return self.chunker.chunk_blocks(
-            self._load_with_docling(path, page_range=page_range)
+            self.extractor.extract(path, page_range=page_range)
         )
 
     def build_tree(
@@ -106,32 +106,6 @@ class DocumentLoader:
         if store is not None:
             store.save(tree)
         return tree
-
-    # ---------------------------------------------------------------------------
-    # Delegating shims — keep existing call sites (including tests) working.
-    # The real logic lives in DoclingStandardExtractor (self.extractor).
-    # ---------------------------------------------------------------------------
-
-    def _load_with_docling(
-        self,
-        path: Path,
-        *,
-        page_range: tuple[int, int] | None = None,
-    ) -> list[DocumentBlock]:
-        return self.extractor.extract(path, page_range=page_range)
-
-    def _load_docling_document(self, document: Any, path: Path) -> list[DocumentBlock]:
-        return self.extractor._load_docling_document(document=document, path=path)
-
-    def _block_type_from_label(self, label: str) -> BlockType:
-        return self.extractor._block_type_from_label(label)
-
-    def _page_from_item(self, item: Any) -> int | None:
-        return self.extractor._page_from_item(item)
-
-    # ---------------------------------------------------------------------------
-    # Loader-owned helpers (workbook, plain-text, markdown, chunker utilities)
-    # ---------------------------------------------------------------------------
 
     def _load_plain_text(self, path: Path, parser_error: str | None = None) -> list[DocumentBlock]:
         text = path.read_text(encoding="utf-8")

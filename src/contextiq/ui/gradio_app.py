@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from html import escape
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,7 @@ from urllib.parse import quote
 import httpx
 
 DEFAULT_BACKEND_URL = "http://127.0.0.1:8000"
+_CITATION_RE = re.compile(r"\[([A-Za-z0-9_.:-]+)(?:,\s*page\s+(?:\d+|unknown))?\]")
 
 APP_CSS = """
 .gradio-container { max-width: none !important; }
@@ -125,6 +127,41 @@ APP_CSS = """
 .source-table td {
   color: #e6e6e9;
 }
+.answer-body {
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid #33353a;
+  border-radius: 6px;
+  padding: 14px;
+  background: #0f1012;
+  max-height: 640px;
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0;
+}
+.grounding-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 6px;
+}
+.grounding-list li {
+  border: 1px solid #34363b;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #202126;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.grounding-list .page-num {
+  color: #ffb47a;
+  font-weight: 600;
+}
+.source-card.cited {
+  border-color: #ff7a1a;
+}
 @media (max-width: 900px) {
   .answer-kpis { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
   .source-list { grid-template-columns: 1fr; }
@@ -167,24 +204,41 @@ def ask_question(
     limit: int,
     block_types: list[str] | None,
 ) -> tuple[str, str, str]:
-    """Ask the backend for a context packet."""
+    """Ask the backend for a grounded answer plus retrieval trace."""
 
     if not question.strip():
         return _empty_answer_panel(), "Ask a question first.", ""
 
     response = httpx.post(
-        f"{_backend_url(backend_url)}/context",
+        f"{_backend_url(backend_url)}/answer",
         json={"question": question, "token_budget": int(token_budget), "limit": int(limit)},
-        timeout=120,
+        timeout=300,
     )
     response.raise_for_status()
     data = response.json()
-    visible_sources = _visible_sources(data.get("sources", []), block_types)
+    context = data.get("context") or {}
+    sources = context.get("sources") or []
+    cited_ids = _cited_block_ids(str(data.get("answer", "")))
+    visible_sources = _visible_sources(sources, block_types)
     return (
-        _format_answer_panel(data, visible_sources),
-        str(data["markdown"]),
-        _format_source_cards(data.get("sources", []), block_types, backend_url=backend_url),
+        _format_answer_panel(data, visible_sources, cited_ids=cited_ids),
+        str(context.get("markdown", "")),
+        _format_source_cards(
+            sources,
+            block_types,
+            backend_url=backend_url,
+            cited_ids=cited_ids,
+        ),
     )
+
+
+def _cited_block_ids(answer: str) -> set[str]:
+    return {match.group(1) for match in _CITATION_RE.finditer(answer)}
+
+
+def _source_sort_key(source: dict[str, Any], cited_ids: set[str]) -> tuple[bool, bool, str]:
+    block_id = str(source.get("block_id", ""))
+    return (block_id not in cited_ids, source.get("page") is None, block_id)
 
 
 def _visible_sources(
@@ -211,56 +265,97 @@ def _empty_answer_panel() -> str:
 def _format_answer_panel(
     data: dict[str, Any],
     visible_sources: list[dict[str, Any]],
+    *,
+    cited_ids: set[str],
 ) -> str:
+    context = data.get("context") or {}
     question = escape(str(data.get("question", "")))
-    used_tokens = escape(str(data.get("used_tokens", "unknown")))
-    token_budget = escape(str(data.get("token_budget", "unknown")))
-    dropped = escape(str(data.get("dropped_candidates", "unknown")))
-    source_count = len(visible_sources)
-    top_source = visible_sources[0] if visible_sources else None
-    top_text = _source_preview(top_source) if top_source else "No matching source types."
-    top_id = escape(str(top_source.get("block_id", "unknown"))) if top_source else "none"
-    top_block_type = str(top_source.get("block_type", "unknown")) if top_source else "none"
-    top_type = escape(top_block_type)
-    top_stages = ", ".join(top_source.get("stages") or []) if top_source else "none"
+    answer_text = str(data.get("answer", "")).strip() or "No answer returned."
+    mode = escape(str(data.get("mode", "unknown")))
+    model = escape(str(data.get("model", "unknown")))
+    tokens_in = escape(str(data.get("tokens_in", "unknown")))
+    tokens_out = escape(str(data.get("tokens_out", "unknown")))
+    used_tokens = escape(str(context.get("used_tokens", "unknown")))
+    warnings = [
+        escape(str(item))
+        for item in data.get("warnings") or []
+        if str(item).strip()
+    ]
+    warnings_html = (
+        "<p class=\"muted\">" + "<br />".join(warnings) + "</p>" if warnings else ""
+    )
 
     return f"""
 <div class="answer-card">
   <h2>ContextIQ Answer</h2>
   <p class="muted">{question}</p>
   <div class="answer-kpis">
-    <div class="kpi"><span>Sources</span><strong>{source_count}</strong></div>
-    <div class="kpi"><span>Used tokens</span><strong>{used_tokens}</strong></div>
-    <div class="kpi"><span>Budget</span><strong>{token_budget}</strong></div>
-    <div class="kpi"><span>Dropped</span><strong>{dropped}</strong></div>
+    <div class="kpi"><span>Sources</span><strong>{len(visible_sources)}</strong></div>
+    <div class="kpi"><span>Mode</span><strong>{mode}</strong></div>
+    <div class="kpi"><span>Tokens in / out</span><strong>{tokens_in} / {tokens_out}</strong></div>
+    <div class="kpi"><span>Context tokens</span><strong>{used_tokens}</strong></div>
   </div>
-  <p>
-    <span class="badge hot">{top_type}</span>
-    <span class="badge">{escape(top_stages)}</span>
-    <span class="badge">{top_id}</span>
-  </p>
-  {_format_source_evidence(top_text, top_block_type)}
+  <p><span class="badge">{model}</span></p>
+  <pre class="answer-body">{escape(answer_text)}</pre>
+  {_format_grounding_section(visible_sources, cited_ids=cited_ids)}
+  {warnings_html}
 </div>
 """.strip()
+
+
+def _format_grounding_section(
+    sources: list[dict[str, Any]],
+    *,
+    cited_ids: set[str],
+) -> str:
+    grounding = [s for s in sources if str(s.get("block_id", "")) in cited_ids] or sources
+    if not grounding:
+        return '<p class="muted">No retrieval grounding available.</p>'
+
+    items: list[str] = []
+    for source in sorted(grounding, key=lambda s: _source_sort_key(s, cited_ids)):
+        block_id = str(source.get("block_id", "unknown"))
+        page = source.get("page")
+        page_label = str(page) if page is not None else "unknown"
+        section = " > ".join(source.get("section_path") or []) or "section unknown"
+        cited = ' <span class="badge hot">cited</span>' if block_id in cited_ids else ""
+        items.append(
+            "<li>"
+            f'<span class="page-num">page {escape(page_label)}</span>'
+            f" · {escape(block_id)}{cited}"
+            f'<br /><span class="muted">{escape(section)}</span>'
+            "</li>"
+        )
+
+    return (
+        "<h3>Grounding (page trace)</h3>"
+        f'<ul class="grounding-list">{"".join(items)}</ul>'
+    )
 
 
 def _format_source_cards(
     sources: list[dict[str, Any]],
     block_types: list[str] | None,
     backend_url: str = DEFAULT_BACKEND_URL,
+    *,
+    cited_ids: set[str] | None = None,
 ) -> str:
     visible_sources = _visible_sources(sources, block_types)
     if not visible_sources:
         return '<div class="source-card muted">No sources match the selected filters.</div>'
 
+    cited = cited_ids or set()
     cards: list[str] = ['<div class="source-list">']
-    for source in visible_sources:
+    for source in sorted(visible_sources, key=lambda s: _source_sort_key(s, cited)):
         metadata = source.get("metadata") or {}
         section = " > ".join(source.get("section_path") or []) or "section unknown"
         stages = ", ".join(source.get("stages") or []) or "unknown"
-        page = source.get("page") or "unknown"
+        page = source.get("page")
+        page_label = str(page) if page is not None else "unknown"
         score = source.get("score")
         score_text = f"{float(score):.2f}" if isinstance(score, int | float) else "unknown"
+        block_id = str(source.get("block_id", "unknown"))
+        is_cited = block_id in cited
         caption = metadata.get("caption")
         visual_kind = metadata.get("visual_kind")
         visual_description = metadata.get("visual_description")
@@ -284,22 +379,25 @@ def _format_source_cards(
             visual_url = _visual_artifact_url(backend_url=backend_url, image_path=str(image_path))
             visual_image_html = (
                 f'<img class="visual-thumb" src="{escape(visual_url)}" '
-                f'alt="Visual evidence for {escape(str(source.get("block_id", "source")))}" '
+                f'alt="Visual evidence for {escape(block_id)}" '
                 'loading="lazy" />'
             )
         evidence = _format_source_evidence(
             str(source.get("text", "")),
             str(source.get("block_type", "")),
         )
+        cited_badge = '<span class="badge hot">cited in answer</span>' if is_cited else ""
+        card_class = "source-card cited" if is_cited else "source-card"
         cards.append(
             f"""
-<div class="source-card">
-  <h3>{escape(str(source.get("block_id", "unknown")))}</h3>
+<div class="{card_class}">
+  <h3>{escape(block_id)}</h3>
   <p>
     <span class="badge hot">{escape(str(source.get("block_type", "unknown")))}</span>
-    <span class="badge">page {escape(str(page))}</span>
+    <span class="badge">page {escape(page_label)}</span>
     <span class="badge">score {escape(score_text)}</span>
     <span class="badge">{escape(stages)}</span>
+    {cited_badge}
     {visual}
   </p>
   <p class="muted">{escape(section)}</p>
@@ -367,20 +465,6 @@ def _format_table(rows: list[list[str]]) -> str:
 """.strip()
 
 
-def _source_preview(source: dict[str, Any] | None) -> str:
-    if not source:
-        return ""
-    text = str(source.get("text", ""))
-    rows = [
-        line
-        for line in text.splitlines()
-        if line.strip() and not set(line.replace("|", "").strip()) <= {"-", " "}
-    ]
-    if len(rows) >= 3 and rows[0].lstrip().startswith("|"):
-        return "\n".join(rows[:3])
-    return text[:1_200]
-
-
 def load_stats(backend_url: str) -> str:
     """Load backend store stats."""
 
@@ -435,7 +519,7 @@ def build_app() -> Any:
                 )
             with gr.Column(scale=1, min_width=260):
                 ask_button = gr.Button(
-                    "Build Context Packet",
+                    "Ask",
                     variant="primary",
                 )
 

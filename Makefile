@@ -1,4 +1,4 @@
-.PHONY: run api ui test lint bench eval
+.PHONY: run api ui test lint eval
 
 run:
 	uv run contextiq --help
@@ -14,9 +14,6 @@ test:
 
 lint:
 	uv run ruff check .
-
-bench:
-	uv run python scripts/benchmark.py
 
 eval:
 	cd evals && uv run python run.py

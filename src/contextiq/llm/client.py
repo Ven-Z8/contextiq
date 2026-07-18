@@ -30,6 +30,8 @@ _PRICING: dict[str, tuple[float, float]] = {
     "opus": (15.0, 75.0),
     "sonnet": (3.0, 15.0),
     "haiku": (1.0, 5.0),
+    "nemotron": (0.0, 0.0),  # NVIDIA hosted - free tier
+    "nemotron-3-ultra": (0.0, 0.0),
 }
 
 
@@ -66,7 +68,7 @@ class AnthropicLLMClient(LLMClient):
 
     def __init__(self, *, api_key: str, model: str) -> None:
         # Some host environments (e.g. Claude Desktop) inject ANTHROPIC_AUTH_TOKEN.
-        # The SDK turns it into an empty/foreign "Authorization: Bearer" header that
+        # The SDK turns it into an empty/foreign "Authorization: ***" header that
         # breaks x-api-key auth (and passing auth_token="" yields an illegal empty
         # Bearer). Remove it from THIS process's env so x-api-key is used cleanly;
         # contextiq is its own process, so this does not affect the host app.
@@ -104,6 +106,7 @@ class AnthropicLLMClient(LLMClient):
 
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 
 
 class OpenRouterLLMClient(LLMClient):
@@ -170,6 +173,75 @@ class OpenRouterLLMClient(LLMClient):
         raise last_exc  # exhausted -> _generate_safely turns this into the extractive fallback
 
 
+class NvidiaLLMClient(LLMClient):
+    """NVIDIA NIM-backed client over raw httpx (OpenAI-compatible API)."""
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        base_url: str = "https://integrate.api.nvidia.com/v1",
+        http_client: httpx.Client | None = None,
+    ) -> None:
+        self.api_key = api_key
+        self.model = model
+        self.base_url = base_url.rstrip("/")
+        self.http = http_client or httpx.Client(timeout=180.0)
+
+    _TRANSIENT_STATUS = frozenset({429, 500, 502, 503, 504})
+
+    def generate(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int,
+    ) -> LLMResult:
+        url = f"{self.base_url}/chat/completions"
+        payload = {
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.2,
+            "top_p": 0.95,
+        }
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        last_exc: Exception | None = None
+        for attempt in range(3):
+            try:
+                response = self.http.post(url, headers=headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                text = (data["choices"][0]["message"]["content"] or "").strip()
+                usage = data.get("usage") or {}
+                tokens_in = int(usage.get("prompt_tokens", 0))
+                tokens_out = int(usage.get("completion_tokens", 0))
+                return LLMResult(
+                    text=text,
+                    model=self.model,
+                    mode="nvidia",
+                    tokens_in=tokens_in,
+                    tokens_out=tokens_out,
+                    cost_usd=estimate_cost(self.model, tokens_in, tokens_out),
+                )
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code not in self._TRANSIENT_STATUS:
+                    raise
+                last_exc = exc
+            except httpx.TransportError as exc:
+                last_exc = exc
+            if attempt < 2:
+                time.sleep(1.5 * (attempt + 1))
+        raise last_exc or RuntimeError("NVIDIA NIM request failed after retries")
+
+
 class ExtractiveFallbackClient(LLMClient):
     """Deterministic fallback used when no API key is configured."""
 
@@ -194,13 +266,13 @@ class ExtractiveFallbackClient(LLMClient):
         excerpt = "\n".join(source_lines[:18]).strip()
         if excerpt:
             text = (
-                "LLM synthesis is disabled because no Anthropic API key is configured. "
+                "LLM synthesis is disabled because no LLM API key is configured. "
                 "Here is the strongest retrieved evidence to review:\n\n"
                 f"{excerpt}"
             )
         else:
             text = (
-                "LLM synthesis is disabled because no Anthropic API key is configured, "
+                "LLM synthesis is disabled because no LLM API key is configured, "
                 "and the retrieved context did not include enough extractive evidence."
             )
         return LLMResult(
@@ -209,5 +281,8 @@ class ExtractiveFallbackClient(LLMClient):
             mode="extractive_fallback",
             tokens_in=len(self.encoder.encode(user_prompt)),
             tokens_out=len(self.encoder.encode(text)),
-            warnings=["Set ANTHROPIC_API_KEY to enable Claude answer synthesis."],
+            warnings=[
+                "Set OPENROUTER_API_KEY (or ANTHROPIC_API_KEY if using anthropic, "
+                "or NVIDIA_API_KEY if using nvidia) to enable LLM answer synthesis."
+            ],
         )

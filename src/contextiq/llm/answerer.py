@@ -13,6 +13,7 @@ from contextiq.llm.client import (
     ExtractiveFallbackClient,
     LLMClient,
     LLMResult,
+    NvidiaLLMClient,
     OpenRouterLLMClient,
 )
 from contextiq.llm.prompts import load_answer_prompt
@@ -71,6 +72,14 @@ class GroundedAnswerer:
             return AnthropicLLMClient(
                 api_key=settings.anthropic_api_key.get_secret_value(),
                 model=settings.default_model,
+            )
+        if settings.llm_provider == "nvidia":
+            if settings.nvidia_api_key is None:
+                return ExtractiveFallbackClient()
+            return NvidiaLLMClient(
+                api_key=settings.nvidia_api_key.get_secret_value(),
+                model=settings.nvidia_model,
+                base_url=settings.nvidia_base_url,
             )
         # Default: OpenRouter (minimax-m3).
         if settings.openrouter_api_key is None:

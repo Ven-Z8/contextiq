@@ -2,7 +2,7 @@
 
 > **One line:** An open-source, run-it-locally RAG system that answers questions over **200+ page documents** with **reproducibly high retrieval accuracy on a public benchmark** — and lets you **swap modules** (extraction engine today; domain skills later) without touching the core.
 
-**Status:** Living document · v0.1 · Last updated 2026-06-11
+**Status:** Living document · v0.2 · Last updated 2026-07-14
 **Owner:** Venkat
 **Repo:** [Ven-Z8/contextiq](https://github.com/Ven-Z8/contextiq) (public)
 
@@ -46,27 +46,27 @@ The product's credibility rests on **one reproducible primary number**, plus sup
 | Unanswerable handling | Correct refusals on the 223 unanswerable questions | Tracked | Tests the confidence gate / anti-hallucination |
 | Ingestion quality | Table fidelity (TEDS), reading-order accuracy | Beats Docling-standard baseline | Garbage extraction caps recall |
 
-**Reproducibility is a hard requirement.** Every number ships with: pinned dataset + model versions, a documented method, a one-command runner (`make eval-mmlb`), and a baseline beside it. A third party must be able to re-run and get the same number. We **never** headline an end-to-end answer-accuracy figure of 80–90% on MMLongBench-Doc — that would be the opposite of undeniable.
+**Reproducibility is a hard requirement.** Every number ships with: pinned dataset + model versions, a documented method, a one-command runner, and a baseline beside it. Current financial QA eval: `evals/financebench/run_answers.py` (see `AGENTS.md`). We **never** headline an end-to-end answer-accuracy figure of 80–90% on MMLongBench-Doc — that would be the opposite of undeniable.
 
 ## 5. Architecture (Agentic Hierarchical RAG)
 
 Three swappable layers over a stable core:
 
-1. **Ingestion** — pluggable layout-preserving extraction (`Extractor` protocol: Docling-VLM now, Nemotron/Mistral later) → a recursive **document tree** with LLM node-summaries. Robust to mixed-bag docs via a heading-based tree with a RAPTOR bottom-up fallback for headingless documents.
-2. **Retrieval** — the existing vector hybrid (SPLADE + ColBERT + RRF) **and** a PageIndex-style reasoning tree the LLM navigates. Two complementary modes.
-3. **Orchestration** — an agent that plans the query, chooses tree-reasoning vs vector search, retrieves iteratively, and answers with citations + a confidence gate.
+1. **Ingestion** — pluggable layout-preserving extraction (`Extractor` protocol: Docling-standard default, Docling-VLM optional) → citation-preserving blocks, optional recursive document tree with node summaries.
+2. **Retrieval** — local Qdrant hybrid (dense FastEmbed + BM25 sparse, RRF fusion), optional agentic route/decompose/rerank (`CONTEXTIQ_AGENTIC`), then token-budgeted context packing.
+3. **Orchestration** — grounded answer synthesis with citations + extractive fallback when no LLM key is configured.
 
 Infra (turbopuffer / cloud vector DB) is a later scale phase, not the headline. Hard constraint: **never the OpenAI SDK**.
 
 ## 6. Scope
 
 ### v0.1 (this milestone) — "Prove the retrieval"
-- **In:** 200+ page ingestion → document tree (shipped, PR #1); MMLongBench-Doc eval harness; retrieval that hits **Recall@5 ≥ 0.85**; reproducible `make eval-mmlb`; local install that works for anyone (`pip install` / `uv sync` with no machine-local deps).
-- **Out:** domain-skill plug-ins; cloud vector DB; hosted SaaS; multi-document corpora reasoning.
+- **In:** long-document ingestion; hybrid retrieval; FinanceBench answer eval harness; local install (`uv sync`) with no machine-local secrets in the repo.
+- **Out:** domain-skill plug-ins; cloud vector DB; hosted SaaS; claiming dead SPLADE/ColBERT enterprise stack as live.
 
 ### Later
 - Domain-skill plug-in system (finance/legal/medical behaviors).
-- Agentic multi-hop + confidence-gated synthesis (sub-project #3).
+- Stronger MMLongBench-Doc recall harness restored under a real one-command target.
 - turbopuffer/cloud backend; multi-document graph.
 
 ## 7. Requirements
@@ -89,7 +89,7 @@ Infra (turbopuffer / cloud vector DB) is a later scale phase, not the headline. 
 |---|---|
 | **M0 — Foundation** *(done)* | Pluggable extraction → document tree, additive to retrieval, tests green (PR #1) |
 | **M1 — Installable + CI** | No machine-local deps; `uv sync` works for a fresh clone; CI runs tests + lint on PRs |
-| **M2 — Measured** | MMLongBench-Doc eval harness; baseline Recall@k recorded; `make eval-mmlb` reproducible |
+| **M2 — Measured** | FinanceBench answer harness green; MMLongBench harness historical (see docs) |
 | **M3 — ≥ 0.85** | Retrieval Recall@5 ≥ 0.85 on MMLongBench-Doc; answer F1 beats baseline; numbers in README |
 
 ## 9. Open risks

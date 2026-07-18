@@ -23,6 +23,9 @@ class _FakeIndex:
         # One id that exists in the store, one that does not.
         return [_FakeHit("d:0", 9.0), _FakeHit("ghost:9", 1.0)]
 
+    def rerank(self, query, candidates, top_k):
+        return candidates[:top_k]
+
 
 def test_hybrid_hits_maps_ids_and_drops_missing(tmp_path) -> None:
     store = LocalDocumentStore(path=tmp_path / "blocks.json")
