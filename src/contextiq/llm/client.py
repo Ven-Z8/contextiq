@@ -95,6 +95,11 @@ class AnthropicLLMClient(LLMClient):
             block.text for block in message.content if getattr(block, "type", None) == "text"
         ).strip()
         usage = message.usage
+        warnings = (
+            ["Answer may be truncated because the model reached the maximum token limit."]
+            if message.stop_reason == "max_tokens"
+            else []
+        )
         return LLMResult(
             text=text,
             model=self.model,
@@ -102,6 +107,7 @@ class AnthropicLLMClient(LLMClient):
             tokens_in=usage.input_tokens,
             tokens_out=usage.output_tokens,
             cost_usd=estimate_cost(self.model, usage.input_tokens, usage.output_tokens),
+            warnings=warnings,
         )
 
 

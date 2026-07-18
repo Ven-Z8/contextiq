@@ -106,10 +106,34 @@ class GroundedAnswerer:
             return fallback
 
     def _grounding_warnings(self, packet: ContextPacket, answer_text: str) -> list[str]:
-        if any(source.block.page is not None for source in packet.sources):
-            return []
-        if re.search(r"\bpage\s+\d+\b", answer_text, flags=re.IGNORECASE):
+        source_pages = {source.block.block_id: source.block.page for source in packet.sources}
+        warnings: list[str] = []
+        for match in re.finditer(
+            r"\[([^,\[\]]+),\s*page\s+(\d+)\]",
+            answer_text,
+            flags=re.IGNORECASE,
+        ):
+            block_id = match.group(1).strip()
+            cited_page = int(match.group(2))
+            if block_id not in source_pages:
+                warnings.append(f"Citation references unknown block {block_id!r}.")
+                continue
+            source_page = source_pages[block_id]
+            if source_page is None:
+                warnings.append(
+                    f"Citation for block {block_id!r} reports page {cited_page}, "
+                    "but the retrieved source page is unknown."
+                )
+            elif source_page != cited_page:
+                warnings.append(
+                    f"Citation for block {block_id!r} reports page {cited_page}, "
+                    f"but the retrieved source is page {source_page}."
+                )
+
+        all_pages_unknown = not any(page is not None for page in source_pages.values())
+        mentions_page = re.search(r"\bpage\s+\d+\b", answer_text, flags=re.IGNORECASE)
+        if not warnings and all_pages_unknown and mentions_page:
             return [
                 "Answer mentions a numeric page, but retrieved sources only report page unknown."
             ]
-        return []
+        return warnings

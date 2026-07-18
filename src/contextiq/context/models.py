@@ -39,7 +39,7 @@ class ContextPacket(BaseModel):
         ]
         for source in self.sources:
             block = source.block
-            page = f"page {block.page}" if block.page else "page unknown"
+            page = f"page {block.page}" if block.page is not None else "page unknown"
             lines.extend(
                 [
                     "",
